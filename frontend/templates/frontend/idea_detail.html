@@ -1,0 +1,444 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Idea Detail — NPD Pipeline{% endblock %}
+{% block page_title %}<span id="hdr-keyword">Loading…</span>{% endblock %}
+{% block page_subtitle %}<span id="hdr-status"></span>&nbsp;<span id="hdr-score"></span>{% endblock %}
+{% block topbar_actions %}<div id="hdr-actions" class="d-flex gap-2"></div>{% endblock %}
+
+{% block content %}
+<!-- Pipeline progress -->
+<div class="d-flex align-items-center mb-4">
+    <div class="d-flex flex-column align-items-center">
+        <div class="step-dot" id="step-scored"></div>
+        <div class="step-label" id="lbl-scored">Scored</div>
+    </div>
+    <div class="step-conn" id="conn-1"></div>
+    <div class="d-flex flex-column align-items-center">
+        <div class="step-dot" id="step-shortlisted"></div>
+        <div class="step-label" id="lbl-shortlisted">Shortlisted</div>
+    </div>
+    <div class="step-conn" id="conn-2"></div>
+    <div class="d-flex flex-column align-items-center">
+        <div class="step-dot" id="step-pre_sourcing"></div>
+        <div class="step-label" id="lbl-pre_sourcing">Pre-Sourcing</div>
+    </div>
+    <div class="step-conn" id="conn-3"></div>
+    <div class="d-flex flex-column align-items-center">
+        <div class="step-dot" id="step-approved"></div>
+        <div class="step-label" id="lbl-approved">Approved</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="main-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-scoring" role="tab">
+            <i class="bi bi-speedometer2 me-1"></i>Scoring
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-reviews" role="tab">
+            <i class="bi bi-chat-left-text me-1"></i>Reviews
+            <span class="badge bg-secondary ms-1" id="badge-reviews">—</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-analysis" role="tab">
+            <i class="bi bi-cpu me-1"></i>AI Analysis
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-presourcing" role="tab">
+            <i class="bi bi-box-seam me-1"></i>Pre-Sourcing
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- TAB: Scoring -->
+    <div class="tab-pane fade show active" id="tab-scoring" role="tabpanel">
+        <div class="row g-3">
+            <div class="col-lg-5">
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <span class="text-muted small text-uppercase" style="font-size:.72rem;letter-spacing:.5px;font-weight:600">Composite Score</span>
+                            <div id="score-hero" style="font-size:3.5rem;font-weight:800;line-height:1">—</div>
+                        </div>
+                        <div id="sub-score-bars-detail" class="mb-3"></div>
+                        <div id="flags-detail"></div>
+                        <div class="text-muted small mt-2" id="scored-at-text"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-7">
+                <div class="card mb-3">
+                    <div class="card-header">Evidence Summary</div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                <tr><td class="text-muted ps-3" style="width:55%">Price band</td><td id="ev-price">—</td></tr>
+                                <tr><td class="text-muted ps-3">Review count (median)</td><td id="ev-reviews">—</td></tr>
+                                <tr><td class="text-muted ps-3">Badge count (page 1)</td><td id="ev-badges">—</td></tr>
+                                <tr><td class="text-muted ps-3">Sponsored ratio</td><td id="ev-sponsored">—</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-header">Competitor ASINs</div>
+                    <div class="card-body" id="competitor-asins-list">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB: Reviews -->
+    <div class="tab-pane fade" id="tab-reviews" role="tabpanel">
+        <div id="reviews-content">
+            <div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+        </div>
+    </div>
+
+    <!-- TAB: AI Analysis -->
+    <div class="tab-pane fade" id="tab-analysis" role="tabpanel">
+        <div id="analysis-content">
+            <div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+        </div>
+    </div>
+
+    <!-- TAB: Pre-Sourcing -->
+    <div class="tab-pane fade" id="tab-presourcing" role="tabpanel">
+        <div id="presourcing-content">
+            <div class="text-center py-5"><div class="spinner-border text-secondary"></div></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var ideaId = '{{ idea_id }}';
+var DIMS = ['demand', 'saturation', 'differentiation', 'fit', 'economic_viability'];
+var DIM_LABELS = { demand:'Demand', saturation:'Saturation', differentiation:'Differentiation', fit:'Fit', economic_viability:'Economic Viability' };
+var _lastActionError = {}; // { endpoint: errorMessage } — persists inline error per tab
+
+async function loadIdea() {
+    try {
+        var idea = await apiGet('/api/ideas/' + ideaId + '/');
+        renderAll(idea);
+    } catch(e) {
+        showToast('Failed to load idea: ' + e.message, 'danger');
+    }
+}
+
+function renderAll(idea) {
+    document.getElementById('hdr-keyword').textContent = idea.keyword || '—';
+    document.getElementById('hdr-status').innerHTML = statusBadge(idea.status);
+    document.getElementById('hdr-score').innerHTML = scoreBadge(idea.tier1_score);
+    renderActions(idea);
+    renderPipelineSteps(idea);
+    renderScoring(idea);
+    renderReviews(idea);
+    renderAnalysis(idea);
+    renderPresourcing(idea);
+}
+
+function renderActions(idea) {
+    var btns = [];
+    var s = idea.status;
+    if (s !== 'dismissed' && s !== 'approved') {
+        btns.push('<button class="btn btn-outline-danger btn-sm" onclick="doStatus(\'dismissed\')"><i class="bi bi-x-circle me-1"></i>Dismiss</button>');
+    }
+    if (s === 'scored') {
+        btns.push('<button class="btn btn-outline-primary btn-sm" onclick="doStatus(\'shortlisted\')"><i class="bi bi-bookmark-star me-1"></i>Shortlist</button>');
+    }
+    if (s === 'shortlisted') {
+        btns.push('<button class="btn btn-warning btn-sm" onclick="doStatus(\'pre_sourcing\')">Move to Pre-Sourcing <i class="bi bi-arrow-right"></i></button>');
+    }
+    if (s === 'pre_sourcing') {
+        btns.push('<button class="btn btn-success btn-sm" onclick="doStatus(\'approved\')"><i class="bi bi-trophy me-1"></i>Approve</button>');
+    }
+    document.getElementById('hdr-actions').innerHTML = btns.join('');
+}
+
+function renderPipelineSteps(idea) {
+    var steps = ['scored', 'shortlisted', 'pre_sourcing', 'approved'];
+    var idx = steps.indexOf(idea.status);
+    steps.forEach(function(s, i) {
+        var dot = document.getElementById('step-' + s);
+        var lbl = document.getElementById('lbl-' + s);
+        if (i < idx)       { dot.className = 'step-dot done';   lbl.className = 'step-label done'; }
+        else if (i === idx){ dot.className = 'step-dot active'; lbl.className = 'step-label active'; }
+        else               { dot.className = 'step-dot';        lbl.className = 'step-label'; }
+        if (i < 3) {
+            var conn = document.getElementById('conn-' + (i + 1));
+            conn.className = i < idx ? 'step-conn done' : 'step-conn';
+        }
+    });
+}
+
+function renderScoring(idea) {
+    var scores = idea.tier1_scores || {};
+    var score = idea.tier1_score;
+    var hero = document.getElementById('score-hero');
+    hero.textContent = score != null ? score : '—';
+    hero.className = score >= 70 ? 'text-success' : score >= 55 ? 'text-warning' : score >= 45 ? 'text-info' : 'text-danger';
+
+    document.getElementById('sub-score-bars-detail').innerHTML = DIMS.map(function(d) {
+        var v = scores[d] != null ? scores[d] : 0;
+        return '<div class="d-flex align-items-center gap-2 mb-2">' +
+            '<div style="width:120px;font-size:.82rem;flex-shrink:0">' + DIM_LABELS[d] + '</div>' +
+            '<div class="progress flex-grow-1" style="height:7px"><div class="progress-bar ' + scoreBarColor(v) + '" style="width:' + v + '%"></div></div>' +
+            '<div style="width:28px;text-align:right;font-size:.82rem;font-weight:600;flex-shrink:0">' + v + '</div>' +
+            '</div>';
+    }).join('');
+
+    document.getElementById('flags-detail').innerHTML = flagBadges(idea.flags);
+    document.getElementById('scored-at-text').textContent = idea.tier1_at ? 'Scored ' + relativeTime(idea.tier1_at) : '';
+
+    var ev = idea.tier1_evidence || {};
+    document.getElementById('ev-price').textContent    = ev.price_band_low != null ? '$' + ev.price_band_low + ' – $' + ev.price_band_high : '—';
+    document.getElementById('ev-reviews').textContent  = ev.review_count_median != null ? ev.review_count_median.toLocaleString() : '—';
+    document.getElementById('ev-badges').textContent   = ev.badge_count != null ? ev.badge_count : '—';
+    document.getElementById('ev-sponsored').textContent = ev.sponsored_ratio != null ? (ev.sponsored_ratio * 100).toFixed(0) + '%' : '—';
+
+    var asins = ev.competitor_asins || [];
+    document.getElementById('competitor-asins-list').innerHTML = asins.length
+        ? asins.map(function(a) { return '<a href="/research/?asin=' + esc(a) + '" class="badge bg-light text-dark border me-1 text-decoration-none" style="font-size:.8rem"><i class="bi bi-upc-scan me-1"></i>' + esc(a) + '</a>'; }).join('')
+        : '<span class="text-muted small">No ASINs recorded</span>';
+}
+
+function renderReviews(idea) {
+    var el = document.getElementById('reviews-content');
+    var rd = idea.review_data || {};
+    var products = rd.products_reviewed || [];
+    var pages = rd.review_pages || {};
+    var total = 0;
+    Object.keys(pages).forEach(function(k) { total += (pages[k] || []).length; });
+    document.getElementById('badge-reviews').textContent = total || '—';
+
+    if (!idea.reviews_scraped) {
+        var scrapeBtn = '';
+        var prereqHint = '';
+        if (['shortlisted', 'pre_sourcing', 'approved'].indexOf(idea.status) >= 0) {
+            scrapeBtn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'reviews/scrape\')"><i class="bi bi-chat-left-text me-2"></i>Scrape Reviews Now</button>';
+        } else if (idea.status === 'scored') {
+            prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Click <strong>Shortlist</strong> (top-right) to unlock review scraping.</p>';
+        } else if (idea.status === 'dismissed') {
+            prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Restore this idea to enable review scraping.</p>';
+        }
+        var errMsg = _lastActionError['reviews/scrape']
+            ? '<div class="alert alert-danger mt-3 small text-start mx-4"><i class="bi bi-exclamation-triangle me-1"></i><strong>Last scrape failed:</strong> ' + esc(_lastActionError['reviews/scrape'].substring(0, 200)) + '</div>'
+            : '';
+        el.innerHTML = '<div class="card"><div class="card-body text-center py-5">' +
+            '<i class="bi bi-chat-left-text display-4 text-muted d-block mb-3"></i>' +
+            '<h6 class="text-muted">Reviews not yet scraped</h6>' +
+            '<p class="text-muted small">Scrapes customer reviews from top competitor ASINs for pain-point analysis.</p>' +
+            scrapeBtn + prereqHint + errMsg + '</div></div>';
+        return;
+    }
+
+    if (!products.length) {
+        el.innerHTML = '<div class="alert alert-secondary">Reviews scraped but no products recorded.</div>';
+        return;
+    }
+
+    var tabNav = products.map(function(asin, i) {
+        var cnt = (pages[asin] || []).length;
+        return '<button class="nav-link' + (i === 0 ? ' active' : '') + '" data-bs-toggle="pill" data-bs-target="#rv-' + asin + '">' +
+            esc(asin) + ' <span class="badge bg-secondary">' + cnt + '</span></button>';
+    }).join('');
+
+    var tabContent = products.map(function(asin, i) {
+        var reviews = (pages[asin] || []).slice().sort(function(a, b) { return (b.helpful_votes || 0) - (a.helpful_votes || 0); });
+        var cards = reviews.map(function(rv) {
+            return '<div class="card mb-2"><div class="card-body py-2 px-3">' +
+                '<div class="d-flex justify-content-between align-items-start">' +
+                    '<strong style="font-size:.875rem">' + esc(rv.title || '—') + '</strong>' +
+                    '<span>' + renderStars(rv.rating) + '</span>' +
+                '</div>' +
+                '<p class="text-muted mb-1 mt-1" style="font-size:.85rem">' + esc((rv.text || '').substring(0, 280)) + ((rv.text || '').length > 280 ? '…' : '') + '</p>' +
+                '<div class="d-flex gap-3 align-items-center" style="font-size:.75rem;color:#9ca3af">' +
+                    '<span>' + esc(rv.date || '') + '</span>' +
+                    (rv.verified_purchase ? '<span class="badge bg-success-subtle text-success border-0">Verified</span>' : '') +
+                    (rv.helpful_votes ? '<span><i class="bi bi-hand-thumbs-up me-1"></i>' + rv.helpful_votes + ' helpful</span>' : '') +
+                '</div></div></div>';
+        }).join('') || '<p class="text-muted small p-3">No reviews for this ASIN.</p>';
+
+        return '<div class="tab-pane fade' + (i === 0 ? ' show active' : '') + '" id="rv-' + asin + '">' + cards + '</div>';
+    }).join('');
+
+    el.innerHTML = '<div class="d-flex gap-3">' +
+        '<div class="nav flex-column nav-pills" style="min-width:130px;flex-shrink:0">' + tabNav + '</div>' +
+        '<div class="tab-content flex-grow-1" style="max-height:600px;overflow-y:auto">' + tabContent + '</div>' +
+        '</div>';
+}
+
+function renderAnalysis(idea) {
+    var el = document.getElementById('analysis-content');
+    if (!idea.tier2_done) {
+        var btn = '';
+        if (idea.tier1_done) {
+            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'analyse\')"><i class="bi bi-cpu me-2"></i>Run AI Analysis (GPT-4o)</button>';
+        }
+        el.innerHTML = '<div class="card"><div class="card-body text-center py-5">' +
+            '<i class="bi bi-cpu display-4 text-muted d-block mb-3"></i>' +
+            '<h6 class="text-muted">AI analysis not yet run</h6>' +
+            '<p class="text-muted small">GPT-4o synthesises all evidence into customer insights, pain points, and a feature blueprint.</p>' +
+            btn + '</div></div>';
+        return;
+    }
+
+    var a = idea.tier2_analysis || {};
+    var recCls = a.recommendation === 'Go' ? 'success' : a.recommendation === 'No-go' ? 'danger' : 'warning';
+    el.innerHTML =
+        '<div class="alert alert-' + recCls + ' d-flex align-items-start gap-3 mb-3">' +
+            '<strong style="font-size:1.25rem;flex-shrink:0">' + esc(a.recommendation || '—') + '</strong>' +
+            '<span>' + esc(a.recommendation_reasoning || '') + '</span>' +
+        '</div>' +
+        '<div class="row g-3">' +
+            '<div class="col-lg-6">' +
+                (a.voc_summary ? '<div class="card mb-3"><div class="card-header">Voice of Customer</div><div class="card-body"><p class="mb-0" style="font-size:.875rem">' + esc(a.voc_summary) + '</p></div></div>' : '') +
+                renderList('Pain Points', a.pain_points, 'bi-exclamation-triangle text-danger') +
+                renderList('Dealbreakers', a.dealbreakers, 'bi-x-circle text-danger') +
+                renderList('Buyer Motivations', a.buyer_motivations, 'bi-heart text-primary') +
+            '</div>' +
+            '<div class="col-lg-6">' +
+                renderFeatureBlueprint(a.feature_blueprint) +
+                (a.differentiation_strategy ? '<div class="card mb-3"><div class="card-header">Differentiation Strategy</div><div class="card-body"><p class="mb-0" style="font-size:.875rem">' + esc(a.differentiation_strategy) + '</p></div></div>' : '') +
+                '<div class="row g-2">' +
+                    (a.end_user_avatar ? '<div class="col-6"><div class="card h-100"><div class="card-header" style="font-size:.75rem">End User</div><div class="card-body" style="font-size:.82rem">' + esc(a.end_user_avatar) + '</div></div></div>' : '') +
+                    (a.buyer_avatar ? '<div class="col-6"><div class="card h-100"><div class="card-header" style="font-size:.75rem">Buyer</div><div class="card-body" style="font-size:.82rem">' + esc(a.buyer_avatar) + '</div></div></div>' : '') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+}
+
+function renderList(title, items, iconCls) {
+    if (!items || !items.length) return '';
+    return '<div class="card mb-3"><div class="card-header">' + title + '</div><div class="card-body py-2"><ul class="mb-0 ps-3">' +
+        items.map(function(item) { return '<li class="mb-1" style="font-size:.875rem"><i class="' + iconCls + ' me-1"></i>' + esc(item) + '</li>'; }).join('') +
+        '</ul></div></div>';
+}
+
+function renderFeatureBlueprint(features) {
+    if (!features || !features.length) return '';
+    var pc = { critical: 'danger', high: 'warning text-dark', medium: 'info' };
+    return '<div class="card mb-3"><div class="card-header">Feature Blueprint</div>' +
+        '<div class="table-responsive"><table class="table table-sm mb-0" style="font-size:.82rem">' +
+        '<thead class="table-light"><tr><th>Feature</th><th>Priority</th><th>Reason</th></tr></thead><tbody>' +
+        features.map(function(f) {
+            return '<tr><td class="fw-semibold">' + esc(f.feature || '') + '</td>' +
+                '<td><span class="badge bg-' + (pc[f.priority] || 'secondary') + '">' + esc(f.priority || '—') + '</span></td>' +
+                '<td class="text-muted">' + esc(f.reason || '') + '</td></tr>';
+        }).join('') +
+        '</tbody></table></div></div>';
+}
+
+function renderPresourcing(idea) {
+    var el = document.getElementById('presourcing-content');
+    if (!idea.presourcing_done) {
+        var btn = '';
+        var prereqHint = '';
+        if (idea.status === 'pre_sourcing') {
+            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'presource\')"><i class="bi bi-box-seam me-2"></i>Generate Pre-Sourcing Docs</button>';
+        } else if (idea.status === 'scored') {
+            prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Shortlist → then move to <strong>Pre-Sourcing</strong> stage to generate docs.</p>';
+        } else if (idea.status === 'shortlisted') {
+            prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Click <strong>Move to Pre-Sourcing</strong> (top-right) to unlock doc generation.</p>';
+        }
+        el.innerHTML = '<div class="card"><div class="card-body text-center py-5">' +
+            '<i class="bi bi-box-seam display-4 text-muted d-block mb-3"></i>' +
+            '<h6 class="text-muted">Pre-sourcing docs not yet generated</h6>' +
+            '<p class="text-muted small">Generates Amazon listing, buyer poll result, and manufacturer sourcing spec.</p>' +
+            btn + prereqHint + '</div></div>';
+        return;
+    }
+
+    var p = idea.presourcing_data || {};
+    var pollWin = (p.poll_winner || '').toLowerCase() === 'our_product';
+    el.innerHTML =
+        '<div class="alert alert-' + (pollWin ? 'success' : 'warning') + ' mb-3">' +
+            '<strong>Buyer Poll: ' + (pollWin ? '✓ Our product wins' : '⚠ Market leader preferred') + '</strong>' +
+            (p.poll_reasoning ? ' — ' + esc(p.poll_reasoning) : '') +
+        '</div>' +
+        '<div class="row g-3">' +
+            '<div class="col-lg-5">' +
+                '<div class="card mb-3"><div class="card-header"><i class="bi bi-shop me-1"></i>Amazon Listing</div><div class="card-body">' +
+                    (p.listing_title ? '<div class="mb-3"><div class="text-muted small mb-1">Title</div><div class="fw-semibold" style="font-size:.875rem">' + esc(p.listing_title) + '</div></div>' : '') +
+                    (p.tagline ? '<div class="mb-3"><div class="text-muted small mb-1">Tagline</div><em>' + esc(p.tagline) + '</em></div>' : '') +
+                    (p.bullet_points && p.bullet_points.length ? '<div><div class="text-muted small mb-1">Bullet Points</div><ol style="font-size:.83rem;padding-left:1.2rem">' + p.bullet_points.map(function(b) { return '<li class="mb-2">' + esc(b) + '</li>'; }).join('') + '</ol></div>' : '') +
+                '</div></div>' +
+                (p.image_shot_list && p.image_shot_list.length ? '<div class="card"><div class="card-header"><i class="bi bi-camera me-1"></i>Image Shot List</div><div class="card-body"><ol style="font-size:.83rem;padding-left:1.2rem">' + p.image_shot_list.map(function(s) {
+                    if (typeof s === 'object' && s !== null) {
+                        return '<li class="mb-3">' +
+                            (s.shot ? '<div class="fw-semibold">' + esc(s.shot) + '</div>' : '') +
+                            (s.description ? '<div class="text-muted mt-1">' + esc(s.description) + '</div>' : '') +
+                            (s.purpose ? '<div class="text-muted fst-italic mt-1" style="font-size:.78rem">' + esc(s.purpose) + '</div>' : '') +
+                            '</li>';
+                    }
+                    return '<li class="mb-1">' + esc(String(s)) + '</li>';
+                }).join('') + '</ol></div></div>' : '') +
+            '</div>' +
+            '<div class="col-lg-4">' +
+                '<div class="card mb-3"><div class="card-header"><i class="bi bi-clipboard-data me-1"></i>Sourcing Spec</div><div class="card-body" style="font-size:.83rem">' +
+                    specRow('Materials', p.materials_spec) +
+                    specRow('Dimensions', p.dimensions_assumptions) +
+                    specRow('Packaging', p.packaging_notes) +
+                    specRow('Compliance', p.compliance_notes) +
+                    specRow('Quote Volume', p.quote_volume_assumptions) +
+                    specRow('Lead Time', p.lead_time_assumptions) +
+                '</div></div>' +
+            '</div>' +
+            '<div class="col-lg-3">' +
+                '<div class="card"><div class="card-header"><i class="bi bi-search me-1"></i>Supplier Search</div><div class="card-body">' +
+                    (p.supplier_search_terms || []).map(function(t) {
+                        return '<a href="https://www.alibaba.com/trade/search?SearchText=' + encodeURIComponent(t) + '" target="_blank" rel="noopener" class="badge bg-light text-dark border mb-1 d-block text-start text-decoration-none" style="font-size:.78rem;padding:.4em .6em;white-space:normal">' +
+                            '<i class="bi bi-box-arrow-up-right me-1"></i>' + esc(t) + '</a>';
+                    }).join('') +
+                '</div></div>' +
+            '</div>' +
+        '</div>';
+}
+
+function specRow(label, value) {
+    if (!value) return '';
+    return '<div class="mb-2"><div class="text-muted" style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px">' + label + '</div><div>' + esc(value) + '</div></div>';
+}
+
+async function doStatus(newStatus) {
+    try {
+        await apiPatch('/api/ideas/' + ideaId + '/update/', { status: newStatus });
+        showToast('Status updated to ' + newStatus.replace(/_/g, ' '), 'success');
+        await loadIdea();
+    } catch(e) {
+        showToast('Update failed: ' + e.message, 'danger');
+    }
+}
+
+async function doAction(endpoint) {
+    showToast('Running… this may take 30–60 seconds', 'info');
+    try {
+        var r = await apiPost('/api/' + endpoint + '/', { idea_id: ideaId });
+        if (r.status === 'complete') {
+            _lastActionError[endpoint] = null;
+            showToast('Done!', 'success');
+        } else if (r.status === 'error') {
+            _lastActionError[endpoint] = r.error || 'Unknown error';
+            showToast('Error: ' + (r.error || 'unknown'), 'danger');
+        } else if (r.status === 'skipped') {
+            _lastActionError[endpoint] = null;
+            showToast('Skipped: ' + (r.skip_reason || ''), 'warning');
+        }
+        await loadIdea();
+    } catch(e) {
+        _lastActionError[endpoint] = e.message;
+        showToast('Action failed: ' + e.message, 'danger');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadIdea);
+</script>
+{% endblock %}

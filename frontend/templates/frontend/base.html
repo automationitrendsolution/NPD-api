@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <title>{% block title %}NPD Pipeline{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <style>
+        :root { --sidebar-width: 250px; }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
+
+        /* ── Sidebar ─────────────────────────────────── */
+        .sidebar {
+            position: fixed; top: 0; left: 0;
+            height: 100vh; width: var(--sidebar-width);
+            background: #1e2130; z-index: 1000;
+            overflow-y: auto; display: flex; flex-direction: column;
+        }
+        .sidebar-brand { padding: 1.25rem; border-bottom: 1px solid rgba(255,255,255,.1); }
+        .brand-title { color: #fff; font-weight: 700; font-size: 1.05rem; margin: 0; line-height: 1.3; }
+        .brand-sub { color: rgba(255,255,255,.38); font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; margin-top: .15rem; }
+        .sidebar-section { color: rgba(255,255,255,.28); font-size: .66rem; text-transform: uppercase; letter-spacing: 1.2px; padding: .85rem 1.25rem .2rem; }
+        .sidebar-link {
+            display: flex; align-items: center; gap: .6rem;
+            padding: .5rem 1.25rem; color: rgba(255,255,255,.62);
+            text-decoration: none; font-size: .875rem; transition: all .15s;
+            border-left: 3px solid transparent;
+        }
+        .sidebar-link:hover { color: #fff; background: rgba(255,255,255,.07); }
+        .sidebar-link.active { color: #fff; background: rgba(99,102,241,.18); border-left-color: #6366f1; }
+        .sidebar-link i { width: 1.1rem; text-align: center; font-size: .95rem; flex-shrink: 0; }
+        .sidebar-footer { padding: .85rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); margin-top: auto; }
+
+        /* ── Main layout ─────────────────────────────── */
+        .main-wrapper { margin-left: var(--sidebar-width); min-height: 100vh; display: flex; flex-direction: column; }
+        .topbar {
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: .7rem 1.5rem; position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .topbar-left h6 { font-size: .9375rem; font-weight: 600; margin: 0; line-height: 1.3; }
+        .topbar-left small { color: #6b7280; font-size: .78rem; }
+        .page-content { padding: 1.5rem; flex: 1; }
+
+        /* ── Cards ───────────────────────────────────── */
+        .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.07); border-radius: .5rem; }
+        .card-header { background: #fff; border-bottom: 1px solid #f1f3f4; font-weight: 600; font-size: .875rem; padding: .75rem 1rem; }
+        .card-header.d-flex { align-items: center; gap: .5rem; }
+
+        /* ── Score badges ────────────────────────────── */
+        .score-badge { display: inline-block; font-size: .78rem; font-weight: 600; padding: .28em .6em; border-radius: .35rem; }
+        .score-eligible   { background: #dcfce7; color: #15803d; }
+        .score-task       { background: #fef9c3; color: #a16207; }
+        .score-below-task { background: #f3f4f6; color: #6b7280; }
+        .score-dismissed  { background: #fee2e2; color: #dc2626; }
+
+        /* ── Kanban ──────────────────────────────────── */
+        .kanban-col { min-width: 255px; max-width: 255px; flex-shrink: 0; }
+        .kanban-header {
+            background: #fff; border-radius: .5rem .5rem 0 0;
+            padding: .7rem 1rem; font-weight: 600; font-size: .85rem;
+            display: flex; align-items: center; gap: .5rem;
+            border-bottom: 3px solid;
+        }
+        .kanban-body {
+            background: #f3f4f6; border-radius: 0 0 .5rem .5rem;
+            padding: .6rem; min-height: 200px;
+            max-height: calc(100vh - 215px); overflow-y: auto;
+        }
+        .idea-card {
+            background: #fff; border-radius: .4rem;
+            padding: .7rem .75rem; margin-bottom: .45rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,.05);
+            cursor: pointer; transition: box-shadow .15s, transform .1s;
+            border: 1px solid #f1f3f4;
+        }
+        .idea-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-1px); }
+
+        /* ── Pipeline steps ──────────────────────────── */
+        .step-dot {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 3px solid #e5e7eb; background: #fff; transition: all .3s;
+        }
+        .step-dot.done   { background: #22c55e; border-color: #22c55e; }
+        .step-dot.active { background: #6366f1; border-color: #6366f1; }
+        .step-label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-top: .3rem; color: #9ca3af; }
+        .step-label.done, .step-label.active { color: #374151; }
+        .step-conn { flex: 1; height: 3px; background: #e5e7eb; margin-bottom: 1.3rem; min-width: 40px; transition: background .3s; }
+        .step-conn.done { background: #22c55e; }
+
+        /* ── Misc ────────────────────────────────────── */
+        .review-stars { color: #f59e0b; }
+        pre.spec-block { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: .85rem; margin: 0; }
+        .table th { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; }
+    </style>
+</head>
+<body>
+
+<nav class="sidebar">
+    <div class="sidebar-brand">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-boxes text-primary" style="font-size:1.4rem;flex-shrink:0"></i>
+            <div>
+                <div class="brand-title">NPD Pipeline</div>
+                <div class="brand-sub">Product Discovery</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-grow-1 overflow-y-auto">
+        <div class="sidebar-section">Pipeline</div>
+        <a href="{% url 'frontend:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
+        <a href="{% url 'frontend:board' %}" class="sidebar-link {% if request.resolver_match.url_name == 'board' %}active{% endif %}">
+            <i class="bi bi-kanban"></i> Task Board
+        </a>
+
+        <div class="sidebar-section">Tools</div>
+        <a href="{% url 'frontend:score' %}" class="sidebar-link {% if request.resolver_match.url_name == 'score' %}active{% endif %}">
+            <i class="bi bi-stars"></i> Score Idea
+        </a>
+        <a href="{% url 'frontend:research' %}" class="sidebar-link {% if request.resolver_match.url_name == 'research' %}active{% endif %}">
+            <i class="bi bi-shop"></i> Amazon Research
+        </a>
+        <a href="{% url 'frontend:ba-explorer' %}" class="sidebar-link {% if request.resolver_match.url_name == 'ba-explorer' %}active{% endif %}">
+            <i class="bi bi-bar-chart-line"></i> BA Explorer
+        </a>
+    </div>
+
+    <div class="sidebar-footer">
+        <small style="font-size:.7rem; color:rgba(255,255,255,.4)">
+            <i class="bi bi-circle-fill me-1" style="font-size:.45rem;color:#22c55e;vertical-align:middle"></i>
+            API running on port 8000
+        </small>
+    </div>
+</nav>
+
+<div class="main-wrapper">
+    <div class="topbar">
+        <div class="topbar-left">
+            <h6>{% block page_title %}Dashboard{% endblock %}</h6>
+            <small>{% block page_subtitle %}{% endblock %}</small>
+        </div>
+        <div class="d-flex gap-2 align-items-center flex-shrink-0">
+            {% block topbar_actions %}{% endblock %}
+        </div>
+    </div>
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ── Shared API helpers ─────────────────────────────────────────── */
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+async function apiGet(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status + ' ' + r.statusText);
+    return r.json();
+}
+async function apiPost(url, data) {
+    const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(data)
+    });
+    return r.json();
+}
+async function apiPatch(url, data) {
+    const r = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(data)
+    });
+    return r.json();
+}
+
+/* ── Shared rendering helpers ───────────────────────────────────── */
+function scoreBadge(score) {
+    if (score == null) return '<span class="score-badge score-below-task">—</span>';
+    var cls = score >= 70 ? 'score-eligible' : score >= 55 ? 'score-task' : score >= 45 ? 'score-below-task' : 'score-dismissed';
+    return '<span class="score-badge ' + cls + '">' + score + '</span>';
+}
+
+function statusBadge(status) {
+    var m = { new: 'secondary', scored: 'info', shortlisted: 'primary', pre_sourcing: 'warning', approved: 'success', dismissed: 'danger' };
+    var light = (status === 'pre_sourcing' || status === 'scored');
+    var label = (status || '').replace(/_/g, ' ');
+    return '<span class="badge bg-' + (m[status] || 'secondary') + (light ? ' text-dark' : '') + ' text-capitalize">' + label + '</span>';
+}
+
+function flagBadges(flags) {
+    if (!flags || !flags.length) return '';
+    var c = { hard_kill: 'danger', no_ba_data: 'secondary', strong_demand: 'success', high_saturation: 'warning text-dark', low_demand: 'danger', score_rescaled_no_ba: 'secondary' };
+    return flags.map(function(f) {
+        return '<span class="badge bg-' + (c[f] || 'secondary') + ' me-1" style="font-size:.68rem">' + f.replace(/_/g, ' ') + '</span>';
+    }).join('');
+}
+
+function relativeTime(iso) {
+    if (!iso) return '—';
+    var then = new Date(iso).getTime();
+    var now  = new Date().getTime();
+    var mins = Math.floor((now - then) / 60000);
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24)  return hrs + 'h ago';
+    return Math.floor(hrs / 24) + 'd ago';
+}
+
+function renderStars(rating) {
+    if (!rating) return '—';
+    var full = Math.floor(rating), half = (rating - full >= 0.4) ? 1 : 0;
+    var empty = Math.max(0, 5 - full - half);
+    return '<span class="review-stars">' + '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty) + '</span> <small class="text-muted">' + rating.toFixed(1) + '</small>';
+}
+
+function scoreBarColor(score) {
+    if (score >= 70) return 'bg-success';
+    if (score >= 55) return 'bg-warning';
+    if (score >= 45) return 'bg-info';
+    return 'bg-danger';
+}
+
+function showToast(msg, type) {
+    type = type || 'success';
+    var el = document.createElement('div');
+    el.className = 'toast align-items-center text-bg-' + type + ' border-0 position-fixed bottom-0 end-0 m-3';
+    el.style.zIndex = 9999;
+    el.setAttribute('role', 'alert');
+    el.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
+    document.body.appendChild(el);
+    new bootstrap.Toast(el, { delay: 3500 }).show();
+    el.addEventListener('hidden.bs.toast', function() { el.remove(); });
+}
+
+function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,227 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Score Idea — NPD Pipeline{% endblock %}
+{% block page_title %}Score New Idea{% endblock %}
+{% block page_subtitle %}Run Tier 1 deterministic market scoring{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+    <!-- Left: form -->
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header d-flex"><i class="bi bi-stars text-primary"></i> Scoring Parameters</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="inp-keyword">Keyword <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="inp-keyword" placeholder="e.g. bamboo travel mug" autocomplete="off">
+                    <div class="invalid-feedback">Keyword is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="inp-concept">Product Concept <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea class="form-control" id="inp-concept" rows="3" placeholder="Brief description of the product idea…"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold" for="inp-source">Source</label>
+                    <select class="form-select" id="inp-source">
+                        <option value="human_seeded">Human Seeded</option>
+                        <option value="autonomous">Autonomous</option>
+                        <option value="adjacency_mining">Adjacency Mining</option>
+                    </select>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="inp-force">
+                    <label class="form-check-label text-muted small" for="inp-force">Re-score even if already evaluated</label>
+                </div>
+                <button class="btn btn-primary w-100" id="btn-score">
+                    <i class="bi bi-stars me-2"></i>Run Tier 1 Scoring
+                </button>
+                <p class="text-muted small mt-2 mb-0">
+                    <i class="bi bi-info-circle me-1"></i>Uses ~5 scraping credits (1 SERP + up to 4 product pages)
+                </p>
+            </div>
+        </div>
+
+        <!-- Threshold legend -->
+        <div class="card">
+            <div class="card-header d-flex"><i class="bi bi-info-circle text-primary"></i> Score Thresholds</div>
+            <div class="card-body py-2">
+                <div class="d-flex flex-column gap-2" style="font-size:.85rem">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="score-badge score-eligible" style="min-width:42px;text-align:center">70+</span>
+                        <span class="text-muted">Tier 1.5 eligible — deep enrichment queued</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="score-badge score-task" style="min-width:42px;text-align:center">55–69</span>
+                        <span class="text-muted">Task board entry created</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="score-badge score-below-task" style="min-width:42px;text-align:center">45–54</span>
+                        <span class="text-muted">Scored, below task threshold</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="score-badge score-dismissed" style="min-width:42px;text-align:center">&lt;45</span>
+                        <span class="text-muted">Dismissed — 7-day cooldown applied</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: results -->
+    <div class="col-lg-7 d-none" id="results-panel">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-bar-chart-fill text-primary me-2"></i>Scoring Results</span>
+                <span id="result-status-badge"></span>
+            </div>
+            <div class="card-body">
+
+                <!-- Score hero -->
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div>
+                        <div class="fw-bold" style="font-size:1.05rem" id="result-keyword"></div>
+                        <div class="text-muted small" id="result-duration"></div>
+                    </div>
+                    <div class="text-center">
+                        <div id="result-score-num" style="font-size:3.25rem;font-weight:800;line-height:1">—</div>
+                        <div class="text-muted" style="font-size:.7rem;letter-spacing:.5px">OUT OF 100</div>
+                    </div>
+                </div>
+
+                <!-- Alert -->
+                <div class="alert d-none mb-3" id="result-alert" role="alert"></div>
+
+                <!-- Sub-score bars -->
+                <div id="sub-score-bars">
+                    <div class="mb-2 text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.6px">Sub-Scores</div>
+                    <div id="score-bars-container"></div>
+                </div>
+
+                <!-- Flags -->
+                <div class="mt-3 d-none" id="flags-section">
+                    <div class="mb-1 text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.6px">Flags</div>
+                    <div id="flags-container"></div>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-3 d-flex gap-2 d-none" id="result-actions">
+                    <a href="#" class="btn btn-primary btn-sm" id="btn-view-detail">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>View Full Detail
+                    </a>
+                    <button class="btn btn-outline-secondary btn-sm" id="btn-score-another">
+                        Score Another
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var DIMS = ['demand', 'saturation', 'differentiation', 'fit', 'economic_viability'];
+var DIM_LABELS = {
+    demand: 'Demand', saturation: 'Saturation',
+    differentiation: 'Differentiation', fit: 'Fit',
+    economic_viability: 'Economic Viability'
+};
+
+document.getElementById('btn-score').addEventListener('click', async function() {
+    var kw = document.getElementById('inp-keyword').value.trim();
+    if (!kw) {
+        document.getElementById('inp-keyword').classList.add('is-invalid');
+        return;
+    }
+    document.getElementById('inp-keyword').classList.remove('is-invalid');
+
+    var btn = document.getElementById('btn-score');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scoring…';
+
+    try {
+        var r = await apiPost('/api/score/', {
+            keyword:      kw,
+            concept:      document.getElementById('inp-concept').value.trim(),
+            source:       document.getElementById('inp-source').value,
+            force_rescore: document.getElementById('inp-force').checked
+        });
+        renderResults(r);
+    } catch(e) {
+        showToast('Scoring failed: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars me-2"></i>Run Tier 1 Scoring';
+    }
+});
+
+function renderResults(r) {
+    document.getElementById('results-panel').classList.remove('d-none');
+    document.getElementById('result-keyword').textContent = r.keyword || '—';
+    document.getElementById('result-status-badge').innerHTML = statusBadge(r.status);
+    document.getElementById('result-duration').textContent = r.duration_seconds ? 'Scored in ' + r.duration_seconds + 's' : '';
+
+    var score = r.tier1_score;
+    var el = document.getElementById('result-score-num');
+    el.textContent = score != null ? score : '—';
+    el.className = score >= 70 ? 'text-success' : score >= 55 ? 'text-warning' : score >= 45 ? 'text-info' : 'text-danger';
+    el.style.cssText = 'font-size:3.25rem;font-weight:800;line-height:1';
+
+    var alert = document.getElementById('result-alert');
+    if (r.status === 'dismissed') {
+        alert.className = 'alert alert-danger mb-3';
+        alert.innerHTML = '<i class="bi bi-x-circle me-2"></i><strong>Dismissed.</strong> ' + esc(r.skip_reason || 'Score below minimum threshold or hard-kill rule matched.');
+        alert.classList.remove('d-none');
+    } else if (r.status === 'skipped') {
+        alert.className = 'alert alert-warning mb-3';
+        alert.innerHTML = '<i class="bi bi-pause-circle me-2"></i><strong>Skipped.</strong> ' + esc(r.skip_reason || '');
+        alert.classList.remove('d-none');
+    } else {
+        alert.classList.add('d-none');
+    }
+
+    // Sub-score bars
+    var container = document.getElementById('score-bars-container');
+    var scores = r.tier1_scores || {};
+    container.innerHTML = DIMS.map(function(d) {
+        var v = scores[d] != null ? scores[d] : 0;
+        return '<div class="d-flex align-items-center gap-2 mb-2">' +
+            '<div style="width:130px;font-size:.82rem;color:#374151;flex-shrink:0">' + DIM_LABELS[d] + '</div>' +
+            '<div class="progress flex-grow-1" style="height:8px">' +
+                '<div class="progress-bar ' + scoreBarColor(v) + '" style="width:0%;transition:width .6s ease" data-target="' + v + '"></div>' +
+            '</div>' +
+            '<div style="width:28px;text-align:right;font-size:.82rem;font-weight:600;flex-shrink:0">' + v + '</div>' +
+            '</div>';
+    }).join('');
+
+    setTimeout(function() {
+        container.querySelectorAll('.progress-bar').forEach(function(bar) {
+            bar.style.width = bar.dataset.target + '%';
+        });
+    }, 60);
+
+    // Flags
+    if (r.flags && r.flags.length) {
+        document.getElementById('flags-section').classList.remove('d-none');
+        document.getElementById('flags-container').innerHTML = flagBadges(r.flags);
+    } else {
+        document.getElementById('flags-section').classList.add('d-none');
+    }
+
+    // Actions
+    if (r.idea_id) {
+        document.getElementById('result-actions').classList.remove('d-none');
+        document.getElementById('btn-view-detail').href = '/ideas/' + r.idea_id + '/';
+    }
+}
+
+document.getElementById('btn-score-another').addEventListener('click', function() {
+    document.getElementById('results-panel').classList.add('d-none');
+    document.getElementById('inp-keyword').value = '';
+    document.getElementById('inp-concept').value = '';
+    document.getElementById('inp-keyword').focus();
+});
+</script>
+{% endblock %}

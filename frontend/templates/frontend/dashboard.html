@@ -1,0 +1,182 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Dashboard — NPD Pipeline{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Pipeline health at a glance{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'frontend:score' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-plus-lg me-1"></i>Score New Idea
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Status metric cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-circle text-secondary"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">New</span>
+            </div>
+            <div class="fw-bold lh-1" style="font-size:2rem" id="count-new">—</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-info bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-check2-circle text-info"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Scored</span>
+            </div>
+            <div class="fw-bold lh-1 text-info" style="font-size:2rem" id="count-scored">—</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-bookmark-star text-primary"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Shortlisted</span>
+            </div>
+            <div class="fw-bold lh-1 text-primary" style="font-size:2rem" id="count-shortlisted">—</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-warning bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-file-earmark-text text-warning"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Pre-Sourcing</span>
+            </div>
+            <div class="fw-bold lh-1 text-warning" style="font-size:2rem" id="count-pre_sourcing">—</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-trophy text-success"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Approved</span>
+            </div>
+            <div class="fw-bold lh-1 text-success" style="font-size:2rem" id="count-approved">—</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4 col-lg-2">
+        <div class="card p-3 h-100">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="rounded-circle bg-danger bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
+                    <i class="bi bi-x-circle text-danger"></i>
+                </span>
+                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Dismissed</span>
+            </div>
+            <div class="fw-bold lh-1 text-danger" style="font-size:2rem" id="count-dismissed">—</div>
+        </div>
+    </div>
+</div>
+
+<!-- BA Status + Recent Activity -->
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header d-flex"><i class="bi bi-database text-primary"></i> Brand Analytics Index</div>
+            <div class="card-body" id="ba-status-body">
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header d-flex"><i class="bi bi-clock-history text-primary"></i> Recent Activity</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Keyword</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Flags</th>
+                                <th class="pe-3">Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-tbody">
+                            <tr><td colspan="5" class="text-center py-4">
+                                <div class="spinner-border spinner-border-sm text-secondary"></div>
+                            </td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadDashboard() {
+    var statuses = ['new', 'scored', 'shortlisted', 'pre_sourcing', 'approved', 'dismissed'];
+    statuses.forEach(function(s) {
+        apiGet('/api/ideas/?status=' + s).then(function(d) {
+            document.getElementById('count-' + s).textContent = d.count;
+        }).catch(function() {
+            document.getElementById('count-' + s).textContent = '!';
+        });
+    });
+
+    // BA Status
+    apiGet('/api/brand-analytics/status/').then(function(ba) {
+        var el = document.getElementById('ba-status-body');
+        if (ba.total_terms > 0) {
+            var periods = (ba.report_dates || []).map(function(d) {
+                return '<span class="badge bg-light text-dark border me-1">' + d + '</span>';
+            }).join('');
+            var lastIng = ba.last_ingestion ? (
+                '<div class="small text-muted mt-2"><i class="bi bi-arrow-repeat me-1"></i>Last: ' +
+                relativeTime(ba.last_ingestion.completed_at) + ' &mdash; ' +
+                (ba.last_ingestion.rows_inserted || 0).toLocaleString() + ' rows</div>'
+            ) : '';
+            el.innerHTML = '<div class="mb-2"><span class="badge bg-success">Connected</span></div>' +
+                '<div class="mb-1"><strong style="font-size:1.4rem">' + ba.total_terms.toLocaleString() + '</strong> <span class="text-muted small">terms indexed</span></div>' +
+                '<div class="mb-1">' + periods + '</div>' + lastIng;
+        } else {
+            el.innerHTML = '<span class="badge bg-danger">No Data</span>' +
+                '<p class="text-muted small mt-2 mb-0">Run <code>python manage.py ingest_brand_analytics</code> to populate.</p>';
+        }
+    }).catch(function() {
+        document.getElementById('ba-status-body').innerHTML = '<span class="badge bg-secondary">Unavailable</span>';
+    });
+
+    // Recent ideas
+    apiGet('/api/ideas/').then(function(data) {
+        var ideas = (data.ideas || []).sort(function(a, b) {
+            return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        }).slice(0, 12);
+        var tbody = document.getElementById('recent-tbody');
+        if (!ideas.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No ideas yet. <a href="/score/">Score your first idea →</a></td></tr>';
+            return;
+        }
+        tbody.innerHTML = ideas.map(function(idea) {
+            return '<tr>' +
+                '<td class="ps-3"><a href="/ideas/' + esc(idea.idea_id) + '/" class="text-decoration-none fw-medium">' + esc(idea.keyword || '') + '</a></td>' +
+                '<td>' + scoreBadge(idea.tier1_score) + '</td>' +
+                '<td>' + statusBadge(idea.status) + '</td>' +
+                '<td>' + flagBadges(idea.flags) + '</td>' +
+                '<td class="pe-3 text-muted small">' + relativeTime(idea.updated_at) + '</td>' +
+                '</tr>';
+        }).join('');
+    }).catch(function() {
+        document.getElementById('recent-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger small py-3">Failed to load ideas</td></tr>';
+    });
+}
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+</script>
+{% endblock %}

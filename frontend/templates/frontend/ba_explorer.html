@@ -1,0 +1,199 @@
+{% extends 'frontend/base.html' %}
+{% block title %}BA Explorer — NPD Pipeline{% endblock %}
+{% block page_title %}Brand Analytics Explorer{% endblock %}
+{% block page_subtitle %}Explore the Amazon keyword demand index{% endblock %}
+
+{% block content %}
+
+<!-- DB Status -->
+<div class="card mb-4">
+    <div class="card-header d-flex"><i class="bi bi-database text-primary"></i> Database Status</div>
+    <div class="card-body" id="db-status-body">
+        <div class="text-center py-2">
+            <div class="spinner-border spinner-border-sm text-secondary"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Lookup panels -->
+<div class="row g-3 mb-3">
+
+    <!-- Single lookup -->
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header d-flex"><i class="bi bi-search text-primary"></i> Single Keyword Lookup</div>
+            <div class="card-body d-flex flex-column">
+                <div class="mb-2">
+                    <label class="form-label fw-semibold small" for="inp-single">Keyword</label>
+                    <input type="text" class="form-control" id="inp-single" placeholder="bamboo travel mug" autocomplete="off">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small" for="inp-date">Report Period <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="text" class="form-control" id="inp-date" placeholder="e.g. 2026-05">
+                </div>
+                <button class="btn btn-primary w-100 mb-3" id="btn-single">
+                    <i class="bi bi-search me-1"></i>Look Up
+                </button>
+                <div id="single-result" class="flex-grow-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Batch lookup -->
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header d-flex">
+                <i class="bi bi-list-check text-primary"></i> Batch Lookup
+                <small class="text-muted fw-normal ms-1">(up to 50 keywords)</small>
+            </div>
+            <div class="card-body d-flex flex-column">
+                <label class="form-label fw-semibold small">Keywords (one per line or comma-separated)</label>
+                <textarea class="form-control mb-2" id="inp-batch" rows="5"
+                    placeholder="bamboo travel mug&#10;silicone baby bib&#10;desk cable organizer"></textarea>
+                <button class="btn btn-primary mb-3" id="btn-batch">
+                    <i class="bi bi-list-check me-1"></i>Batch Lookup
+                </button>
+                <div id="batch-result" class="flex-grow-1"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA -->
+<div class="card">
+    <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+            <strong>Found a high-demand keyword?</strong>
+            <span class="text-muted ms-1">Score it as a product idea to run the full Tier 1 analysis.</span>
+        </div>
+        <a href="{% url 'frontend:score' %}" class="btn btn-success btn-sm">
+            <i class="bi bi-stars me-1"></i>Score an Idea
+        </a>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function rankBadge(rank) {
+    if (!rank) return '<span class="badge bg-secondary">—</span>';
+    var cls = rank <= 500 ? 'bg-success' : rank <= 5000 ? 'bg-warning text-dark' : rank <= 25000 ? 'bg-warning' : 'bg-danger';
+    return '<span class="badge ' + cls + '">#' + rank.toLocaleString() + '</span>';
+}
+
+async function loadStatus() {
+    var el = document.getElementById('db-status-body');
+    try {
+        var ba = await apiGet('/api/brand-analytics/status/');
+        if (ba.total_terms > 0) {
+            var periods = (ba.report_dates || []).map(function(d) {
+                return '<span class="badge bg-light text-dark border me-1">' + esc(d) + '</span>';
+            }).join('');
+            var lastIng = ba.last_ingestion
+                ? '<div class="small text-muted mt-1"><i class="bi bi-arrow-repeat me-1"></i>Last ingestion: ' +
+                  relativeTime(ba.last_ingestion.completed_at) + ' — ' +
+                  (ba.last_ingestion.rows_inserted || 0).toLocaleString() + ' rows</div>'
+                : '';
+            el.innerHTML =
+                '<div class="d-flex flex-wrap gap-4 align-items-start">' +
+                    '<div><span class="badge bg-success px-3 py-2" style="font-size:.85rem">Connected</span></div>' +
+                    '<div><div class="text-muted" style="font-size:.7rem;text-transform:uppercase;font-weight:600">Terms Indexed</div>' +
+                        '<div class="fw-bold" style="font-size:1.5rem;line-height:1.2">' + ba.total_terms.toLocaleString() + '</div></div>' +
+                    '<div><div class="text-muted" style="font-size:.7rem;text-transform:uppercase;font-weight:600">Periods</div>' +
+                        '<div class="mt-1">' + periods + '</div>' + lastIng + '</div>' +
+                '</div>';
+        } else {
+            el.innerHTML =
+                '<div class="d-flex align-items-center gap-3">' +
+                    '<span class="badge bg-danger px-3 py-2" style="font-size:.85rem">No Data</span>' +
+                    '<div class="text-muted small">Run <code class="bg-light border rounded px-2 py-1">python manage.py ingest_brand_analytics</code> to populate the index.</div>' +
+                '</div>';
+        }
+    } catch(e) {
+        el.innerHTML = '<span class="badge bg-secondary">Unavailable</span> <span class="text-muted small ms-2">Cannot connect to database.</span>';
+    }
+}
+
+async function singleLookup() {
+    var kw = document.getElementById('inp-single').value.trim();
+    if (!kw) return;
+    var date = document.getElementById('inp-date').value.trim();
+    var el = document.getElementById('single-result');
+    el.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-secondary"></div></div>';
+
+    try {
+        var url = '/api/brand-analytics/lookup/?keyword=' + encodeURIComponent(kw);
+        if (date) url += '&report_date=' + encodeURIComponent(date);
+        var data = await apiGet(url);
+
+        if (!data.found) {
+            el.innerHTML = '<div class="alert alert-warning py-2 mb-0">' +
+                '<i class="bi bi-question-circle me-1"></i><strong>' + esc(data.keyword) + '</strong> not found in Brand Analytics index.</div>';
+            return;
+        }
+
+        var d = data.data;
+        var rankCls = d.search_frequency_rank <= 500 ? 'success' : d.search_frequency_rank <= 5000 ? 'warning text-dark' : d.search_frequency_rank <= 25000 ? 'warning' : 'danger';
+        el.innerHTML =
+            '<div class="alert alert-success py-2 mb-2"><i class="bi bi-check-circle me-1"></i>Found in Brand Analytics</div>' +
+            '<table class="table table-sm" style="font-size:.83rem"><tbody>' +
+                '<tr><td class="text-muted">Search Term</td><td class="fw-semibold">' + esc(d.search_term) + '</td></tr>' +
+                '<tr><td class="text-muted">Frequency Rank</td><td><span class="badge bg-' + rankCls + '">#' + (d.search_frequency_rank || 0).toLocaleString() + '</span></td></tr>' +
+                '<tr><td class="text-muted">Report Period</td><td>' + esc(d.report_date || '—') + '</td></tr>' +
+                (d.clicked_asin_1 ? '<tr><td class="text-muted">Top Clicked</td><td><code>' + esc(d.clicked_asin_1) + '</code> <span class="badge bg-light text-dark border">' + ((d.click_share_1 || 0) * 100).toFixed(1) + '% clicks</span></td></tr>' : '') +
+                (d.clicked_asin_2 ? '<tr><td class="text-muted">#2 ASIN</td><td><code>' + esc(d.clicked_asin_2) + '</code> <span class="badge bg-light text-dark border">' + ((d.click_share_2 || 0) * 100).toFixed(1) + '% clicks</span></td></tr>' : '') +
+                (d.clicked_asin_3 ? '<tr><td class="text-muted">#3 ASIN</td><td><code>' + esc(d.clicked_asin_3) + '</code> <span class="badge bg-light text-dark border">' + ((d.click_share_3 || 0) * 100).toFixed(1) + '% clicks</span></td></tr>' : '') +
+            '</tbody></table>';
+    } catch(e) {
+        el.innerHTML = '<div class="alert alert-danger py-2 mb-0">Error: ' + esc(e.message) + '</div>';
+    }
+}
+
+async function batchLookup() {
+    var raw = document.getElementById('inp-batch').value;
+    var keywords = raw.split(/[\n,]+/).map(function(k) { return k.trim(); }).filter(Boolean);
+    var unique = keywords.filter(function(k, i) { return keywords.indexOf(k) === i; });
+
+    if (!unique.length) return;
+    if (unique.length > 50) {
+        showToast('Maximum 50 keywords per batch request', 'warning');
+        return;
+    }
+
+    var el = document.getElementById('batch-result');
+    el.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-secondary"></div> <span class="text-muted small">Looking up ' + unique.length + ' keywords…</span></div>';
+
+    try {
+        var data = await apiGet('/api/brand-analytics/lookup-batch/?keywords=' + encodeURIComponent(unique.join(',')));
+        var results = data.results || {};
+        var rows = unique.map(function(kw) {
+            var d = results[kw];
+            return '<tr class="' + (d ? '' : 'table-light') + '">' +
+                '<td class="fw-semibold">' + esc(kw) + '</td>' +
+                '<td>' + (d ? rankBadge(d.search_frequency_rank) : '<span class="badge bg-secondary">Not found</span>') + '</td>' +
+                '<td>' + (d && d.clicked_asin_1 ? '<code style="font-size:.78rem">' + esc(d.clicked_asin_1) + '</code>' : '<span class="text-muted">—</span>') + '</td>' +
+                '<td>' + (d && d.click_share_1 ? ((d.click_share_1 * 100).toFixed(1) + '%') : '—') + '</td>' +
+                '</tr>';
+        }).join('');
+
+        el.innerHTML =
+            '<div class="d-flex justify-content-between mb-2" style="font-size:.82rem">' +
+                '<span class="text-muted">' + unique.length + ' keywords queried</span>' +
+                '<span class="fw-semibold">' + data.found + ' found</span>' +
+            '</div>' +
+            '<div class="table-responsive">' +
+            '<table class="table table-sm mb-0" style="font-size:.82rem">' +
+            '<thead class="table-light"><tr><th>Keyword</th><th>Rank</th><th>Top ASIN</th><th>Click %</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table></div>';
+    } catch(e) {
+        el.innerHTML = '<div class="alert alert-danger py-2 mb-0">Error: ' + esc(e.message) + '</div>';
+    }
+}
+
+document.getElementById('btn-single').addEventListener('click', singleLookup);
+document.getElementById('inp-single').addEventListener('keypress', function(e) { if (e.key === 'Enter') singleLookup(); });
+document.getElementById('btn-batch').addEventListener('click', batchLookup);
+document.addEventListener('DOMContentLoaded', loadStatus);
+</script>
+{% endblock %}

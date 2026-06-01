@@ -6,7 +6,7 @@ from rest_framework.response import Response
 
 from .memory import IdeaMemoryStore, VALID_STATUSES
 from .brand_analytics import db as ba_db
-from .brand_analytics.db import get_db_stats, get_latest_ingestion
+from .brand_analytics.db import get_db_stats, get_latest_ingestion, init_db as ba_init_db
 from .scoring.scorer import score_idea
 from .scoring import config as scoring_config
 from .llm.tier2c import run_tier2c
@@ -252,6 +252,7 @@ def ba_lookup(request):
 
     report_date = request.GET.get("report_date", None)
     db_path = str(settings.BA_DB_PATH)
+    ba_init_db(db_path)
 
     try:
         row = ba_db.lookup(db_path, keyword, report_date=report_date)
@@ -300,6 +301,7 @@ def ba_lookup_batch(request):
 
     report_date = request.GET.get("report_date", None)
     db_path = str(settings.BA_DB_PATH)
+    ba_init_db(db_path)
 
     try:
         results = ba_db.lookup_batch(db_path, keywords, report_date=report_date)
@@ -330,6 +332,7 @@ def ba_status(request):
     Use this to confirm the database has been populated before running Tier 1.
     """
     db_path = str(settings.BA_DB_PATH)
+    ba_init_db(db_path)
 
     try:
         stats = get_db_stats(db_path)

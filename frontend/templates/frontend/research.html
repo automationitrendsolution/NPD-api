@@ -1,0 +1,166 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Amazon Research — NPD Pipeline{% endblock %}
+{% block page_title %}Amazon Research{% endblock %}
+{% block page_subtitle %}Search keywords and explore competitor products{% endblock %}
+
+{% block content %}
+<!-- Search bar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+            <input type="text" class="form-control" style="max-width:380px" id="inp-search" placeholder="Search Amazon… e.g. bamboo travel mug" autocomplete="off">
+            <select class="form-select w-auto" id="inp-page">
+                <option value="1">Page 1</option>
+                <option value="2">Page 2</option>
+                <option value="3">Page 3</option>
+                <option value="4">Page 4</option>
+                <option value="5">Page 5</option>
+            </select>
+            <button class="btn btn-primary" id="btn-search">
+                <i class="bi bi-search me-1"></i>Search
+            </button>
+            <span class="text-muted small d-none" id="result-summary"></span>
+        </div>
+    </div>
+</div>
+
+<!-- Spinner -->
+<div class="text-center py-5 d-none" id="search-spinner">
+    <div class="spinner-border text-primary mb-2"></div>
+    <div class="text-muted small">Searching Amazon via ScrapingBee…</div>
+</div>
+
+<!-- Results row (hidden until search runs) -->
+<div class="row g-3 d-none" id="search-results-row">
+    <!-- Product grid -->
+    <div class="col-lg-7">
+        <div class="row g-2" id="products-grid"></div>
+    </div>
+    <!-- Detail panel -->
+    <div class="col-lg-5">
+        <div class="card" id="detail-panel">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-cursor display-5 d-block mb-2"></i>
+                <div>Click any product to view details</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Empty state (shown on first load) -->
+<div id="empty-state" class="text-center py-5">
+    <i class="bi bi-shop display-3 text-muted d-block mb-3"></i>
+    <h5 class="text-muted">Search a keyword to explore products</h5>
+    <p class="text-muted small">Browse competitor products, check prices and reviews, then score the keyword as a product idea.</p>
+    <a href="{% url 'frontend:score' %}" class="btn btn-outline-primary btn-sm mt-1">
+        <i class="bi bi-stars me-1"></i>Go to Score Idea
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function searchAmazon() {
+    var keyword = document.getElementById('inp-search').value.trim();
+    if (!keyword) return;
+    var page = document.getElementById('inp-page').value;
+
+    document.getElementById('empty-state').classList.add('d-none');
+    document.getElementById('search-spinner').classList.remove('d-none');
+    document.getElementById('search-results-row').classList.add('d-none');
+    document.getElementById('result-summary').classList.add('d-none');
+
+    try {
+        var data = await apiGet('/api/amazon-search/?keyword=' + encodeURIComponent(keyword) + '&page=' + page);
+        renderProducts(data.products || [], keyword);
+        var summary = document.getElementById('result-summary');
+        summary.textContent = (data.product_count || 0) + ' products found for "' + keyword + '"';
+        summary.classList.remove('d-none');
+        document.getElementById('search-results-row').classList.remove('d-none');
+    } catch(e) {
+        showToast('Search failed: ' + e.message, 'danger');
+        document.getElementById('empty-state').classList.remove('d-none');
+    } finally {
+        document.getElementById('search-spinner').classList.add('d-none');
+    }
+}
+
+function renderProducts(products, keyword) {
+    var grid = document.getElementById('products-grid');
+    if (!products.length) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-4">No products found.</div>';
+        return;
+    }
+    grid.innerHTML = products.map(function(p) {
+        var titleShort = (p.title || '—').substring(0, 65) + ((p.title || '').length > 65 ? '…' : '');
+        var asin = p.asin || '';
+        return '<div class="col-md-6">' +
+            '<div class="idea-card h-100" onclick="showDetail(\'' + esc(asin) + '\')">' +
+                (p.image_url ? '<img src="' + esc(p.image_url) + '" style="width:100%;height:110px;object-fit:contain;margin-bottom:.5rem" loading="lazy" alt="">' : '') +
+                '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                    (asin ? '<span class="badge bg-light text-dark border" style="font-size:.68rem"><i class="bi bi-upc-scan me-1"></i>' + esc(asin) + '</span>' : '<span></span>') +
+                    '<div>' +
+                        (p.badge ? '<span class="badge bg-warning text-dark me-1" style="font-size:.68rem">' + esc(p.badge) + '</span>' : '') +
+                        (p.sponsored ? '<span class="badge bg-secondary" style="font-size:.68rem">Ad</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="fw-semibold mb-1" style="font-size:.83rem;line-height:1.35">' + esc(titleShort) + '</div>' +
+                '<div class="d-flex justify-content-between align-items-center">' +
+                    (p.price != null ? '<span class="text-success fw-bold">$' + p.price.toFixed(2) + '</span>' : '<span class="text-muted">—</span>') +
+                    '<span>' + renderStars(p.rating) + '</span>' +
+                '</div>' +
+                (p.reviews != null ? '<div class="text-muted" style="font-size:.75rem">' + p.reviews.toLocaleString() + ' reviews</div>' : '') +
+            '</div>' +
+            '</div>';
+    }).join('');
+}
+
+async function showDetail(asin) {
+    if (!asin) return;
+    var panel = document.getElementById('detail-panel');
+    panel.innerHTML = '<div class="card-body text-center py-4">' +
+        '<div class="spinner-border text-primary mb-2"></div>' +
+        '<div class="text-muted small">Loading ' + esc(asin) + '…</div></div>';
+
+    try {
+        var data = await apiGet('/api/amazon-product/?asin=' + encodeURIComponent(asin));
+        var p = data.product || {};
+        var kw = document.getElementById('inp-search').value.trim();
+        panel.innerHTML = '<div class="card-body">' +
+            (p.main_image_url ? '<img src="' + esc(p.main_image_url) + '" style="width:100%;max-height:180px;object-fit:contain;margin-bottom:.75rem" alt="">' : '') +
+            '<div class="badge bg-light text-dark border mb-2" style="font-size:.72rem"><i class="bi bi-upc-scan me-1"></i>' + esc(asin) + '</div>' +
+            '<h6 class="mb-2" style="font-size:.875rem">' + esc(p.title || '—') + '</h6>' +
+            (p.brand ? '<div class="text-muted small mb-1">Brand: <strong>' + esc(p.brand) + '</strong></div>' : '') +
+            '<div class="d-flex gap-3 align-items-center mb-2">' +
+                (p.price != null ? '<span class="text-success fw-bold">$' + p.price.toFixed(2) + '</span>' : '') +
+                '<span>' + renderStars(p.rating) + '</span>' +
+                (p.review_count != null ? '<span class="text-muted small">' + p.review_count.toLocaleString() + ' reviews</span>' : '') +
+            '</div>' +
+            (p.bullet_points && p.bullet_points.length
+                ? '<div class="mb-3"><div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:.3rem">Key Features</div>' +
+                  '<ul style="font-size:.8rem;padding-left:1.1rem">' + p.bullet_points.slice(0, 4).map(function(b) { return '<li class="mb-1">' + esc(b) + '</li>'; }).join('') + '</ul></div>'
+                : '') +
+            '<a href="/score/" class="btn btn-success btn-sm w-100 mt-1" id="score-link">' +
+                '<i class="bi bi-stars me-1"></i>Score "' + esc(kw || asin) + '"' +
+            '</a>' +
+            '</div>';
+    } catch(e) {
+        panel.innerHTML = '<div class="card-body text-danger small p-3"><i class="bi bi-exclamation-triangle me-1"></i>Failed to load product detail.</div>';
+    }
+}
+
+document.getElementById('btn-search').addEventListener('click', searchAmazon);
+document.getElementById('inp-search').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchAmazon();
+});
+
+// Pre-fill keyword from query string
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var kw = params.get('keyword') || params.get('asin') || '';
+    if (kw) {
+        document.getElementById('inp-search').value = kw;
+    }
+})();
+</script>
+{% endblock %}
