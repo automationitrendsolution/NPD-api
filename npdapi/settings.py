@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'search',
+    'api',
 ]
 
 MIDDLEWARE = [
@@ -117,3 +117,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# ── NPD Idea Memory ───────────────────────────────────────────────────────────
+# Path to the NDJSON file that stores all product idea state.
+# BASE_DIR is the project root (the folder containing manage.py).
+# Every part of the pipeline imports this path via:
+#     from django.conf import settings
+#     settings.IDEA_MEMORY_PATH
+IDEA_MEMORY_PATH = BASE_DIR / 'data' / 'ideas.ndjson'
+
+# ── Brand Analytics SQLite index ──────────────────────────────────────────────
+# Separate SQLite file (not the main Django db.sqlite3) used exclusively
+# for fast keyword lookups during Tier 1 scoring.
+# Ingested weekly via: python manage.py ingest_brand_analytics
+# Required .env keys:
+#   SP_API_CLIENT_ID, SP_API_CLIENT_SECRET, SP_API_REFRESH_TOKEN
+#   SP_API_MARKETPLACE_ID  (e.g. ATVPDKIKX0DER for US)
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+#   AWS_REGION             (default: us-east-1)
+BA_DB_PATH = BASE_DIR / 'data' / 'brand_analytics.sqlite3'
+
+# ── LLM (OpenAI) ──────────────────────────────────────────────────────────────
+# Models and key are loaded from .env by api/llm/client.py.
+# OPENAI_API_KEY    = sk-...         (required for Tier 2C and Tier 3)
+# OPENAI_MODEL      = gpt-4o         (default analysis model)
+# OPENAI_MODEL_FAST = gpt-4o-mini    (default fast/generation model)
