@@ -4,6 +4,228 @@
 {% block page_subtitle %}Run Tier 1 deterministic market scoring{% endblock %}
 
 {% block content %}
+<style>
+/* ── Scoring animation card ────────────────────────── */
+#scoring-overlay.d-none { display: none !important; }
+
+.sa-card {
+  position: relative;
+  background: var(--card-bg, #0d1024);
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 16px;
+  padding: 2.5rem 2rem 1.75rem;
+  text-align: center;
+  box-shadow:
+    0 8px 30px rgba(0,0,0,.25),
+    0 0 0 1px rgba(99,102,241,.1),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  overflow: hidden;
+  animation: sa-fadein .3s ease;
+}
+
+@keyframes sa-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Floating particles ─────── */
+.sa-particles { position: absolute; inset: 0; pointer-events: none; }
+.sa-p {
+  position: absolute;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0;
+  animation: sa-float linear infinite;
+}
+.sa-p:nth-child(1){ width:3px;height:3px; left:8%;  animation-duration:4.2s; animation-delay:.1s; }
+.sa-p:nth-child(2){ width:2px;height:2px; left:22%; animation-duration:5.1s; animation-delay:.9s; background:#818cf8; }
+.sa-p:nth-child(3){ width:4px;height:4px; left:42%; animation-duration:3.7s; animation-delay:1.4s; }
+.sa-p:nth-child(4){ width:2px;height:2px; left:60%; animation-duration:4.8s; animation-delay:.5s; background:#a78bfa; }
+.sa-p:nth-child(5){ width:3px;height:3px; left:78%; animation-duration:4.3s; animation-delay:2s;  }
+.sa-p:nth-child(6){ width:2px;height:2px; left:91%; animation-duration:3.9s; animation-delay:1s; background:#818cf8; }
+
+@keyframes sa-float {
+  0%   { transform: translateY(420px) scale(.6); opacity: 0; }
+  8%   { opacity: .8; }
+  75%  { opacity: .35; }
+  100% { transform: translateY(-40px) scale(1.4); opacity: 0; }
+}
+
+/* ── Central icon ───────────── */
+.sa-icon-wrap {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  margin: 0 auto 1.75rem;
+}
+.sa-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1.5px solid #6366f1;
+  animation: sa-ring-pulse 2.5s ease-in-out infinite;
+}
+.sa-ring-1 { inset: 0;     opacity: .65; animation-delay: 0s;   }
+.sa-ring-2 { inset:-13px;  opacity: .35; animation-delay: .55s; }
+.sa-ring-3 { inset:-26px;  opacity: .15; animation-delay: 1.1s; }
+
+@keyframes sa-ring-pulse {
+  0%,100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+.sa-icon-inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #4f46e5, #818cf8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+  color: #fff;
+  animation: sa-glow 2.5s ease-in-out infinite;
+  transition: background .5s, box-shadow .5s;
+}
+@keyframes sa-glow {
+  0%,100% { box-shadow: 0 0 22px rgba(99,102,241,.45), 0 4px 20px rgba(0,0,0,.4); }
+  50%      { box-shadow: 0 0 50px rgba(99,102,241,.85), 0 0 80px rgba(99,102,241,.2), 0 4px 20px rgba(0,0,0,.4); }
+}
+.sa-icon-inner.sa-done {
+  background: linear-gradient(135deg, #059669, #34d399);
+  animation: none;
+  box-shadow: 0 0 40px rgba(16,185,129,.6), 0 4px 20px rgba(0,0,0,.4);
+}
+.sa-icon-inner.sa-error {
+  background: linear-gradient(135deg, #dc2626, #f87171);
+  animation: none;
+  box-shadow: 0 0 35px rgba(220,38,38,.5), 0 4px 20px rgba(0,0,0,.4);
+}
+
+/* ── Text ───────────────────── */
+.sa-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -.015em;
+  margin-bottom: .3rem;
+  transition: color .3s;
+}
+.sa-subtitle {
+  font-size: .8rem;
+  color: #4b5563;
+  min-height: 1.3em;
+  transition: opacity .3s;
+}
+
+/* ── Steps ──────────────────── */
+.sa-steps {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  margin: 1.6rem 0 1.4rem;
+  text-align: left;
+}
+.sa-step {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  font-size: .81rem;
+  color: #2d3146;
+  transition: color .4s;
+}
+.sa-step-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #1a1d2e;
+  border: 1.5px solid #2d3146;
+  transition: background .35s, border-color .35s, box-shadow .35s;
+}
+.sa-step.sa-active .sa-step-dot {
+  background: #6366f1;
+  border-color: #6366f1;
+  animation: sa-dot-pulse 1.3s ease-in-out infinite;
+}
+.sa-step.sa-active       { color: #c7d2fe; }
+.sa-step.sa-active span  { font-weight: 600; }
+.sa-step.sa-done .sa-step-dot {
+  background: #10b981;
+  border-color: #10b981;
+  animation: none;
+}
+.sa-step.sa-done         { color: #374151; }
+
+@keyframes sa-dot-pulse {
+  0%,100% { box-shadow: 0 0 0 2px rgba(99,102,241,.3); }
+  50%      { box-shadow: 0 0 0 5px rgba(99,102,241,.1); }
+}
+
+/* ── Progress ───────────────── */
+.sa-progress-wrap {
+  height: 3px;
+  background: #1a1d2e;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.sa-pbar {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #4f46e5, #818cf8, #a78bfa, #818cf8, #4f46e5);
+  background-size: 300% 100%;
+  animation: sa-shimmer 1.8s linear infinite;
+  transition: width .7s ease;
+}
+.sa-pbar.sa-done {
+  background: linear-gradient(90deg, #059669, #34d399);
+  background-size: 200% 100%;
+  animation: sa-shimmer 1.8s linear infinite;
+  transition: width .3s ease;
+}
+
+@keyframes sa-shimmer {
+  0%   { background-position: 0% 0; }
+  100% { background-position: -300% 0; }
+}
+
+.sa-plabel {
+  font-size: .68rem;
+  color: #374151;
+  text-align: right;
+  margin-top: .4rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Keyword label ──────────── */
+.sa-keyword {
+  display: inline-block;
+  background: rgba(99,102,241,.1);
+  border: 1px solid rgba(99,102,241,.2);
+  border-radius: 6px;
+  font-size: .75rem;
+  color: #818cf8;
+  padding: .15rem .55rem;
+  margin-bottom: .9rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* ── Done card flash ─────────  */
+@keyframes sa-done-flash {
+  0%   { box-shadow: 0 35px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(16,185,129,.4); }
+  40%  { box-shadow: 0 35px 90px rgba(0,0,0,.7), 0 0 0 12px rgba(16,185,129,0); }
+  100% { box-shadow: 0 35px 90px rgba(0,0,0,.7), 0 0 0 1px rgba(99,102,241,.12); }
+}
+.sa-card.sa-card-done {
+  animation: sa-done-flash .7s ease forwards;
+}
+</style>
+
 <div class="row g-4">
 
     <!-- Left: form -->
@@ -67,8 +289,39 @@
         </div>
     </div>
 
-    <!-- Right: results -->
-    <div class="col-lg-7 d-none" id="results-panel">
+    <!-- Right: animation + results -->
+    <div class="col-lg-7 d-none" id="right-col">
+
+        <!-- Animation card (shown while scoring) -->
+        <div id="scoring-overlay" class="d-none">
+          <div class="sa-card" id="sa-card">
+            <div class="sa-particles">
+              <span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>
+              <span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>
+            </div>
+            <div class="sa-icon-wrap">
+              <div class="sa-ring sa-ring-1"></div>
+              <div class="sa-ring sa-ring-2"></div>
+              <div class="sa-ring sa-ring-3"></div>
+              <div class="sa-icon-inner" id="sa-icon"><i class="bi bi-stars"></i></div>
+            </div>
+            <div class="sa-keyword" id="sa-keyword-lbl">—</div>
+            <div class="sa-title"    id="sa-title">Analyzing Market</div>
+            <div class="sa-subtitle" id="sa-subtitle">Connecting to Amazon…</div>
+            <div class="sa-steps">
+              <div class="sa-step sa-active" id="sa-step-0"><div class="sa-step-dot"></div><span>Amazon SERP Search</span></div>
+              <div class="sa-step"           id="sa-step-1"><div class="sa-step-dot"></div><span>Product Page Scraping</span></div>
+              <div class="sa-step"           id="sa-step-2"><div class="sa-step-dot"></div><span>Brand Analytics Lookup</span></div>
+              <div class="sa-step"           id="sa-step-3"><div class="sa-step-dot"></div><span>Dimension Scoring</span></div>
+              <div class="sa-step"           id="sa-step-4"><div class="sa-step-dot"></div><span>Generating Report</span></div>
+            </div>
+            <div class="sa-progress-wrap"><div class="sa-pbar" id="sa-pbar"></div></div>
+            <div class="sa-plabel" id="sa-plabel">0%</div>
+          </div>
+        </div>
+
+        <!-- Results card -->
+        <div id="results-panel" class="d-none">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span><i class="bi bi-bar-chart-fill text-primary me-2"></i>Scoring Results</span>
@@ -115,7 +368,8 @@
 
             </div>
         </div>
-    </div>
+        </div><!-- /results-panel -->
+    </div><!-- /right-col -->
 
 </div>
 
@@ -191,6 +445,127 @@ var DIM_LABELS = {
     economic_viability: 'Economic Viability'
 };
 
+/* ─────────────────────────────────────────────
+   Scoring animation controller
+───────────────────────────────────────────── */
+var SA = (function() {
+    var timers   = [];
+    var rafId    = null;
+    var progress = 0;
+    var target   = 0;
+    var finished = false;
+
+    var STAGES = [
+        { idx:0, target: 6,  title:'Analyzing Market',       sub:'Fetching Amazon search results…' },
+        { idx:1, target:26,  title:'Scraping Products',       sub:'Extracting top product listing pages…' },
+        { idx:2, target:50,  title:'Checking Brand Analytics',sub:'Looking up search frequency rank…' },
+        { idx:3, target:72,  title:'Scoring Dimensions',      sub:'Calculating demand, saturation & fit…' },
+        { idx:4, target:90,  title:'Generating Report',       sub:'Compiling tier 1 scorecard…' },
+    ];
+    /* cumulative ms when each stage activates */
+    var TIMING = [0, 3200, 9000, 14500, 20000];
+
+    function el(id){ return document.getElementById(id); }
+
+    function setStep(idx, cls) {
+        var s = el('sa-step-' + idx);
+        if (s) s.className = 'sa-step' + (cls ? ' ' + cls : '');
+    }
+
+    function reset(keyword) {
+        finished = false;
+        progress = 0; target = 0;
+        timers.forEach(clearTimeout); timers = [];
+        if (rafId) cancelAnimationFrame(rafId); rafId = null;
+
+        for (var i = 0; i < 5; i++) setStep(i, '');
+        el('sa-icon').className = 'sa-icon-inner';
+        el('sa-icon').innerHTML = '<i class="bi bi-stars"></i>';
+        el('sa-pbar').className = 'sa-pbar';
+        el('sa-pbar').style.width = '0%';
+        el('sa-plabel').textContent = '0%';
+        el('sa-title').textContent   = 'Analyzing Market';
+        el('sa-subtitle').textContent = 'Connecting to Amazon…';
+        el('sa-keyword-lbl').textContent = keyword || '—';
+        el('sa-card').classList.remove('sa-card-done');
+    }
+
+    function tick() {
+        var diff = target - progress;
+        if (Math.abs(diff) > 0.12) {
+            progress += diff * 0.035;
+            var pct = Math.min(100, Math.round(progress * 10) / 10);
+            el('sa-pbar').style.width = pct + '%';
+            el('sa-plabel').textContent = Math.round(pct) + '%';
+        }
+        if (!finished) rafId = requestAnimationFrame(tick);
+    }
+
+    function activateStage(idx) {
+        if (finished) return;
+        var s = STAGES[idx];
+        /* mark previous done */
+        for (var i = 0; i < idx; i++) setStep(i, 'sa-done');
+        setStep(idx, 'sa-active');
+        el('sa-title').textContent   = s.title;
+        el('sa-subtitle').textContent = s.sub;
+        target = s.target;
+    }
+
+    return {
+        start: function(keyword) {
+            reset(keyword);
+            el('right-col').classList.remove('d-none');
+            el('results-panel').classList.add('d-none');
+            el('scoring-overlay').classList.remove('d-none');
+
+            TIMING.forEach(function(ms, idx) {
+                timers.push(setTimeout(function() { activateStage(idx); }, ms));
+            });
+
+            rafId = requestAnimationFrame(tick);
+        },
+
+        complete: function() {
+            finished = true;
+            timers.forEach(clearTimeout);
+            if (rafId) cancelAnimationFrame(rafId);
+
+            for (var i = 0; i < 5; i++) setStep(i, 'sa-done');
+            el('sa-title').textContent    = 'Analysis Complete!';
+            el('sa-subtitle').textContent = 'Results ready — loading…';
+            el('sa-icon').className = 'sa-icon-inner sa-done';
+            el('sa-icon').innerHTML = '<i class="bi bi-check-lg"></i>';
+            el('sa-pbar').className = 'sa-pbar sa-done';
+            el('sa-pbar').style.width = '100%';
+            el('sa-plabel').textContent = '100%';
+            el('sa-card').classList.add('sa-card-done');
+
+            setTimeout(function() {
+                el('scoring-overlay').classList.add('d-none');
+                el('sa-card').classList.remove('sa-card-done');
+            }, 800);
+        },
+
+        error: function() {
+            finished = true;
+            timers.forEach(clearTimeout);
+            if (rafId) cancelAnimationFrame(rafId);
+            el('sa-icon').className = 'sa-icon-inner sa-error';
+            el('sa-icon').innerHTML = '<i class="bi bi-x-lg"></i>';
+            el('sa-title').textContent = 'Scoring Failed';
+            el('sa-subtitle').textContent = 'Check the error toast for details.';
+            setTimeout(function() {
+                el('scoring-overlay').classList.add('d-none');
+                el('right-col').classList.add('d-none');
+            }, 1200);
+        }
+    };
+})();
+
+/* ─────────────────────────────────────────────
+   Score button handler
+───────────────────────────────────────────── */
 document.getElementById('btn-score').addEventListener('click', async function() {
     var kw = document.getElementById('inp-keyword').value.trim();
     if (!kw) {
@@ -203,6 +578,8 @@ document.getElementById('btn-score').addEventListener('click', async function() 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Scoring…';
 
+    SA.start(kw);
+
     try {
         var r = await apiPost('/api/score/', {
             keyword:      kw,
@@ -210,9 +587,13 @@ document.getElementById('btn-score').addEventListener('click', async function() 
             source:       document.getElementById('inp-source').value,
             force_rescore: document.getElementById('inp-force').checked
         });
-        renderResults(r);
-        loadHistory();
+        SA.complete();
+        setTimeout(function() {
+            renderResults(r);
+            loadHistory();
+        }, 850);
     } catch(e) {
+        SA.error();
         showToast('Scoring failed: ' + e.message, 'danger');
     } finally {
         btn.disabled = false;
@@ -220,7 +601,11 @@ document.getElementById('btn-score').addEventListener('click', async function() 
     }
 });
 
+/* ─────────────────────────────────────────────
+   Render results
+───────────────────────────────────────────── */
 function renderResults(r) {
+    document.getElementById('right-col').classList.remove('d-none');
     document.getElementById('results-panel').classList.remove('d-none');
     document.getElementById('result-keyword').textContent = r.keyword || '—';
     document.getElementById('result-status-badge').innerHTML = statusBadge(r.status);
@@ -282,11 +667,15 @@ function renderResults(r) {
 
 document.getElementById('btn-score-another').addEventListener('click', function() {
     document.getElementById('results-panel').classList.add('d-none');
+    document.getElementById('right-col').classList.add('d-none');
     document.getElementById('inp-keyword').value = '';
     document.getElementById('inp-concept').value = '';
     document.getElementById('inp-keyword').focus();
 });
 
+/* ─────────────────────────────────────────────
+   History
+───────────────────────────────────────────── */
 async function loadHistory() {
     document.getElementById('history-loading').classList.remove('d-none');
     document.getElementById('history-empty').classList.add('d-none');
@@ -344,7 +733,7 @@ function deleteIdeaFromHistory(ev, ideaId, keyword) {
 
 document.getElementById('delete-modal-confirm').addEventListener('click', async function() {
     if (!_deleteTarget) return;
-    var { ideaId, keyword } = _deleteTarget;
+    var ideaId = _deleteTarget.ideaId, keyword = _deleteTarget.keyword;
     var confirmBtn = this;
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';

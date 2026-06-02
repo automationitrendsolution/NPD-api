@@ -2,7 +2,14 @@
 {% block title %}Idea Detail — NPD Pipeline{% endblock %}
 {% block page_title %}<span id="hdr-keyword">Loading…</span>{% endblock %}
 {% block page_subtitle %}<span id="hdr-status"></span>&nbsp;<span id="hdr-score"></span>{% endblock %}
-{% block topbar_actions %}<div id="hdr-actions" class="d-flex gap-2"></div>{% endblock %}
+{% block topbar_actions %}
+<div class="d-flex align-items-center gap-2">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+    <div id="hdr-actions" class="d-flex gap-2"></div>
+</div>
+{% endblock %}
 
 {% block content %}
 <!-- Pipeline progress -->
@@ -119,23 +126,113 @@
 
 {% block scripts %}
 <style>
-@keyframes scrapeIconPulse {
-    0%,100%{transform:scale(1);opacity:1}
-    50%{transform:scale(1.12);opacity:.75}
+/* ── Shared animation card (tabs) ───────────────────── */
+.sa-card {
+  position: relative;
+  background: var(--card-bg, #0d1024);
+  border: 1px solid rgba(99,102,241,.3);
+  border-radius: 16px;
+  padding: 2.25rem 2rem 1.75rem;
+  text-align: center;
+  box-shadow:
+    0 8px 30px rgba(0,0,0,.25),
+    0 0 0 1px rgba(99,102,241,.1),
+    inset 0 1px 0 rgba(255,255,255,.04);
+  overflow: hidden;
+  animation: sa-fadein .3s ease;
 }
-@keyframes stepSlideIn {
-    from{opacity:0;transform:translateX(-10px)}
-    to{opacity:1;transform:translateX(0)}
+@keyframes sa-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-@keyframes spin {
-    to{transform:rotate(360deg)}
+
+/* particles */
+.sa-particles { position: absolute; inset: 0; pointer-events: none; }
+.sa-p {
+  position: absolute;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0;
+  animation: sa-float linear infinite;
 }
-.scraping-icon-pulse{animation:scrapeIconPulse 1.4s ease-in-out infinite;display:inline-block}
-.scrape-step{transition:opacity .3s ease}
-.spin{display:inline-block;animation:spin .8s linear infinite}
-.asin-badge-scraping{border-color:#6366f1!important;color:#6366f1!important;background:rgba(99,102,241,.07)!important}
-.asin-badge-done{border-color:#22c55e!important;color:#16a34a!important;background:rgba(34,197,94,.08)!important}
+.sa-p:nth-child(1){ width:3px;height:3px; left:8%;  animation-duration:4.2s; animation-delay:.1s; }
+.sa-p:nth-child(2){ width:2px;height:2px; left:22%; animation-duration:5.1s; animation-delay:.9s; background:#818cf8; }
+.sa-p:nth-child(3){ width:4px;height:4px; left:42%; animation-duration:3.7s; animation-delay:1.4s; }
+.sa-p:nth-child(4){ width:2px;height:2px; left:60%; animation-duration:4.8s; animation-delay:.5s; background:#a78bfa; }
+.sa-p:nth-child(5){ width:3px;height:3px; left:78%; animation-duration:4.3s; animation-delay:2s; }
+.sa-p:nth-child(6){ width:2px;height:2px; left:91%; animation-duration:3.9s; animation-delay:1s; background:#818cf8; }
+@keyframes sa-float {
+  0%   { transform: translateY(420px) scale(.6); opacity: 0; }
+  8%   { opacity: .8; }
+  75%  { opacity: .35; }
+  100% { transform: translateY(-40px) scale(1.4); opacity: 0; }
+}
+
+/* icon rings */
+.sa-icon-wrap { position:relative; width:72px; height:72px; margin:0 auto 1.5rem; }
+.sa-ring { position:absolute; border-radius:50%; border:1.5px solid #6366f1; animation:sa-ring-pulse 2.5s ease-in-out infinite; }
+.sa-ring-1 { inset:0;     opacity:.65; animation-delay:0s;   }
+.sa-ring-2 { inset:-13px; opacity:.35; animation-delay:.55s; }
+.sa-ring-3 { inset:-26px; opacity:.15; animation-delay:1.1s; }
+@keyframes sa-ring-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+.sa-icon-inner {
+  position:absolute; inset:0; border-radius:50%;
+  background:linear-gradient(135deg,#4f46e5,#818cf8);
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.55rem; color:#fff;
+  animation:sa-glow 2.5s ease-in-out infinite;
+  transition:background .5s, box-shadow .5s;
+}
+@keyframes sa-glow {
+  0%,100%{box-shadow:0 0 22px rgba(99,102,241,.45),0 4px 20px rgba(0,0,0,.4)}
+  50%    {box-shadow:0 0 50px rgba(99,102,241,.85),0 0 80px rgba(99,102,241,.2),0 4px 20px rgba(0,0,0,.4)}
+}
+.sa-icon-inner.sa-done  { background:linear-gradient(135deg,#059669,#34d399); animation:none; box-shadow:0 0 40px rgba(16,185,129,.6); }
+.sa-icon-inner.sa-error { background:linear-gradient(135deg,#dc2626,#f87171); animation:none; box-shadow:0 0 35px rgba(220,38,38,.5); }
+
+/* text */
+.sa-keyword  { display:inline-block; background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.2); border-radius:6px; font-size:.73rem; color:#818cf8; padding:.15rem .55rem; margin-bottom:.85rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+.sa-title    { font-size:1.05rem; font-weight:700; color:#e2e8f0; letter-spacing:-.015em; margin-bottom:.3rem; }
+.sa-subtitle { font-size:.78rem; color:#4b5563; min-height:1.3em; }
+
+/* steps */
+.sa-steps { display:flex; flex-direction:column; gap:.55rem; margin:1.4rem 0 1.25rem; text-align:left; }
+.sa-step  { display:flex; align-items:center; gap:.75rem; font-size:.8rem; color:#2d3146; transition:color .4s; }
+.sa-step-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; background:#1a1d2e; border:1.5px solid #2d3146; transition:background .35s,border-color .35s,box-shadow .35s; }
+.sa-step.sa-active .sa-step-dot { background:#6366f1; border-color:#6366f1; animation:sa-dot-pulse 1.3s ease-in-out infinite; }
+.sa-step.sa-active       { color:#c7d2fe; }
+.sa-step.sa-active span  { font-weight:600; }
+.sa-step.sa-done .sa-step-dot { background:#10b981; border-color:#10b981; animation:none; }
+.sa-step.sa-done         { color:#374151; }
+@keyframes sa-dot-pulse { 0%,100%{box-shadow:0 0 0 2px rgba(99,102,241,.3)} 50%{box-shadow:0 0 0 5px rgba(99,102,241,.1)} }
+
+/* progress */
+.sa-progress-wrap { height:3px; background:#1a1d2e; border-radius:3px; overflow:hidden; }
+.sa-pbar {
+  height:100%; width:0%; border-radius:3px;
+  background:linear-gradient(90deg,#4f46e5,#818cf8,#a78bfa,#818cf8,#4f46e5);
+  background-size:300% 100%;
+  animation:sa-shimmer 1.8s linear infinite;
+  transition:width .7s ease;
+}
+.sa-pbar.sa-done { background:linear-gradient(90deg,#059669,#34d399); background-size:200% 100%; }
+@keyframes sa-shimmer { 0%{background-position:0%} 100%{background-position:-300%} }
+.sa-plabel { font-size:.68rem; color:#374151; text-align:right; margin-top:.4rem; font-variant-numeric:tabular-nums; }
+
+/* card done flash */
+@keyframes sa-done-flash {
+  0%  {box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 1px rgba(16,185,129,.4)}
+  40% {box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 12px rgba(16,185,129,0)}
+  100%{box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 1px rgba(99,102,241,.1)}
+}
+.sa-card.sa-card-done { animation:sa-done-flash .7s ease forwards; }
+
+/* keep existing spin/step for any residual elements */
+@keyframes spin { to{transform:rotate(360deg)} }
+.spin { display:inline-block; animation:spin .8s linear infinite; }
 </style>
+
 <script>
 var ideaId = '{{ idea_id }}';
 var DIMS = ['demand', 'saturation', 'differentiation', 'fit', 'economic_viability'];
@@ -143,6 +240,80 @@ var DIM_LABELS = { demand:'Demand', saturation:'Saturation', differentiation:'Di
 var _lastActionError = {};
 var _ideaCache = null;
 
+/* ═══════════════════════════════════════════════════════
+   Reusable tab animation card builder
+   prefix   — unique short string (e.g. 'ai', 'rv', 'ps')
+   container — DOM element to inject into
+   opts     — { keyword, icon, title, subtitle, steps[], completeTitle }
+═══════════════════════════════════════════════════════ */
+function buildTabAnim(container, opts) {
+    var p = opts.prefix;
+    var nSteps = opts.steps.length;
+
+    container.innerHTML =
+        '<div class="d-flex justify-content-center py-3">' +
+        '<div class="sa-card" id="' + p + '_card" style="max-width:500px;width:100%">' +
+            '<div class="sa-particles">' +
+                '<span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>' +
+                '<span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>' +
+            '</div>' +
+            '<div class="sa-icon-wrap">' +
+                '<div class="sa-ring sa-ring-1"></div>' +
+                '<div class="sa-ring sa-ring-2"></div>' +
+                '<div class="sa-ring sa-ring-3"></div>' +
+                '<div class="sa-icon-inner" id="' + p + '_icon"><i class="' + esc(opts.icon) + '"></i></div>' +
+            '</div>' +
+            '<div class="sa-keyword">' + esc(opts.keyword || '') + '</div>' +
+            '<div class="sa-title"    id="' + p + '_title">' + esc(opts.title || '') + '</div>' +
+            '<div class="sa-subtitle" id="' + p + '_sub">'   + esc(opts.subtitle || '') + '</div>' +
+            '<div class="sa-steps">' +
+                opts.steps.map(function(s, i) {
+                    return '<div class="sa-step" id="' + p + '_s' + i + '">' +
+                        '<div class="sa-step-dot"></div><span>' + esc(s) + '</span></div>';
+                }).join('') +
+            '</div>' +
+            '<div class="sa-progress-wrap"><div class="sa-pbar" id="' + p + '_pbar"></div></div>' +
+            '<div class="sa-plabel" id="' + p + '_plbl">0%</div>' +
+        '</div></div>';
+
+    function g(id)  { return document.getElementById(p + '_' + id); }
+    function sEl(i) { return document.getElementById(p + '_s' + i); }
+    function setPct(pct) { g('pbar').style.width = pct + '%'; g('plbl').textContent = Math.round(pct) + '%'; }
+
+    return {
+        activate: function(idx, title, sub, pct) {
+            for (var j = 0; j < idx; j++) { var s = sEl(j); if (s) s.className = 'sa-step sa-done'; }
+            var cur = sEl(idx); if (cur) cur.className = 'sa-step sa-active';
+            if (title != null) g('title').textContent = title;
+            if (sub   != null) g('sub').textContent   = sub;
+            if (pct   != null) setPct(pct);
+        },
+        setProgress: function(pct) { setPct(pct); },
+        complete: function() {
+            for (var j = 0; j < nSteps; j++) { var s = sEl(j); if (s) s.className = 'sa-step sa-done'; }
+            g('title').textContent  = opts.completeTitle || 'Complete!';
+            g('sub').textContent    = 'Loading results…';
+            g('icon').className     = 'sa-icon-inner sa-done';
+            g('icon').innerHTML     = '<i class="bi bi-check-lg"></i>';
+            g('pbar').className     = 'sa-pbar sa-done';
+            g('pbar').style.width   = '100%';
+            g('plbl').textContent   = '100%';
+            var card = g('card');
+            if (card) { card.classList.add('sa-card-done'); setTimeout(function() { card.classList.remove('sa-card-done'); }, 700); }
+        },
+        error: function() {
+            g('icon').className    = 'sa-icon-inner sa-error';
+            g('icon').innerHTML    = '<i class="bi bi-x-lg"></i>';
+            g('title').textContent = 'Failed';
+            g('sub').textContent   = 'Check the error message below.';
+            setPct(100);
+        }
+    };
+}
+
+/* ─────────────────────────────────────────────────────
+   Load & render
+───────────────────────────────────────────────────── */
 async function loadIdea() {
     try {
         var idea = await apiGet('/api/ideas/' + ideaId + '/');
@@ -168,6 +339,24 @@ function renderAll(idea) {
 function renderActions(idea) {
     var btns = [];
     var s = idea.status;
+
+    // ── Backward (move back one stage) ──────────────────
+    if (s === 'shortlisted') {
+        btns.push('<button class="btn btn-outline-secondary btn-sm" onclick="doStatus(\'scored\')" title="Move back to Scored"><i class="bi bi-arrow-left me-1"></i>Un-shortlist</button>');
+    }
+    if (s === 'pre_sourcing') {
+        btns.push('<button class="btn btn-outline-secondary btn-sm" onclick="doStatus(\'shortlisted\')" title="Move back to Shortlisted"><i class="bi bi-arrow-left me-1"></i>Back to Shortlisted</button>');
+    }
+    if (s === 'approved') {
+        btns.push('<button class="btn btn-outline-secondary btn-sm" onclick="doStatus(\'pre_sourcing\')" title="Move back to Pre-Sourcing"><i class="bi bi-arrow-left me-1"></i>Back to Pre-Sourcing</button>');
+    }
+
+    // ── Divider between backward and forward ────────────
+    if (btns.length) {
+        btns.push('<span class="border-start mx-1" style="height:28px;display:inline-block;vertical-align:middle"></span>');
+    }
+
+    // ── Forward / action buttons ─────────────────────────
     if (s !== 'dismissed' && s !== 'approved') {
         btns.push('<button class="btn btn-outline-danger btn-sm" onclick="doStatus(\'dismissed\')"><i class="bi bi-x-circle me-1"></i>Dismiss</button>');
     }
@@ -180,6 +369,7 @@ function renderActions(idea) {
     if (s === 'pre_sourcing') {
         btns.push('<button class="btn btn-success btn-sm" onclick="doStatus(\'approved\')"><i class="bi bi-trophy me-1"></i>Approve</button>');
     }
+
     document.getElementById('hdr-actions').innerHTML = btns.join('');
 }
 
@@ -314,9 +504,12 @@ function renderAnalysis(idea) {
     var a = idea.tier2_analysis || {};
     var recCls = a.recommendation === 'Go' ? 'success' : a.recommendation === 'No-go' ? 'danger' : 'warning';
     el.innerHTML =
-        '<div class="alert alert-' + recCls + ' d-flex align-items-start gap-3 mb-3">' +
+        '<div class="alert alert-' + recCls + ' d-flex align-items-center gap-3 mb-3">' +
             '<strong style="font-size:1.25rem;flex-shrink:0">' + esc(a.recommendation || '—') + '</strong>' +
-            '<span>' + esc(a.recommendation_reasoning || '') + '</span>' +
+            '<span class="flex-grow-1">' + esc(a.recommendation_reasoning || '') + '</span>' +
+            '<button class="btn btn-sm flex-shrink-0 ms-2" style="background:rgba(255,255,255,.35);border:1px solid rgba(0,0,0,.15);font-size:.73rem;white-space:nowrap" onclick="runAnalysis(true)">' +
+                '<i class="bi bi-arrow-clockwise me-1"></i>Regenerate' +
+            '</button>' +
         '</div>' +
         '<div class="row g-3">' +
             '<div class="col-lg-6">' +
@@ -363,7 +556,7 @@ function renderPresourcing(idea) {
         var btn = '';
         var prereqHint = '';
         if (idea.status === 'pre_sourcing') {
-            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'presource\')"><i class="bi bi-box-seam me-2"></i>Generate Pre-Sourcing Docs</button>';
+            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="runPresourcing()"><i class="bi bi-box-seam me-2"></i>Generate Pre-Sourcing Docs</button>';
         } else if (idea.status === 'scored') {
             prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Shortlist → then move to <strong>Pre-Sourcing</strong> stage to generate docs.</p>';
         } else if (idea.status === 'shortlisted') {
@@ -380,9 +573,12 @@ function renderPresourcing(idea) {
     var p = idea.presourcing_data || {};
     var pollWin = (p.poll_winner || '').toLowerCase() === 'our_product';
     el.innerHTML =
-        '<div class="alert alert-' + (pollWin ? 'success' : 'warning') + ' mb-3">' +
-            '<strong>Buyer Poll: ' + (pollWin ? '✓ Our product wins' : '⚠ Market leader preferred') + '</strong>' +
-            (p.poll_reasoning ? ' — ' + esc(p.poll_reasoning) : '') +
+        '<div class="alert alert-' + (pollWin ? 'success' : 'warning') + ' d-flex align-items-center gap-3 mb-3">' +
+            '<span class="flex-grow-1"><strong>Buyer Poll: ' + (pollWin ? '✓ Our product wins' : '⚠ Market leader preferred') + '</strong>' +
+            (p.poll_reasoning ? ' — ' + esc(p.poll_reasoning) : '') + '</span>' +
+            '<button class="btn btn-sm flex-shrink-0 ms-2" style="background:rgba(255,255,255,.35);border:1px solid rgba(0,0,0,.15);font-size:.73rem;white-space:nowrap" onclick="runPresourcing(true)">' +
+                '<i class="bi bi-arrow-clockwise me-1"></i>Regenerate' +
+            '</button>' +
         '</div>' +
         '<div class="row g-3">' +
             '<div class="col-lg-5">' +
@@ -428,311 +624,193 @@ function specRow(label, value) {
     return '<div class="mb-2"><div class="text-muted" style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px">' + label + '</div><div>' + esc(value) + '</div></div>';
 }
 
-async function runAnalysis() {
-    var el = document.getElementById('analysis-content');
+/* ═══════════════════════════════════════════════════════
+   AI Analysis — animated run
+═══════════════════════════════════════════════════════ */
+async function runAnalysis(force) {
+    var container = document.getElementById('analysis-content');
     var keyword = (_ideaCache && _ideaCache.keyword) || 'product';
 
-    var steps = [
-        { label: 'Collecting scoring evidence & review data',     icon: 'bi-database' },
-        { label: 'Connecting to GPT-4o',                          icon: 'bi-cpu' },
-        { label: 'Synthesising Voice of Customer signals',         icon: 'bi-chat-quote' },
-        { label: 'Identifying pain points & buyer motivations',    icon: 'bi-exclamation-triangle' },
-        { label: 'Generating feature blueprint',                   icon: 'bi-layers' },
-        { label: 'Building differentiation strategy',              icon: 'bi-trophy' },
-        { label: 'Formulating Go / No-go recommendation',          icon: 'bi-signpost-split' },
-        { label: 'Saving analysis to MongoDB',                     icon: 'bi-database-check' },
+    var STEPS = [
+        'Collecting scoring evidence & review data',
+        'Connecting to GPT-4o',
+        'Synthesising Voice of Customer signals',
+        'Identifying pain points & buyer motivations',
+        'Generating feature blueprint',
+        'Building differentiation strategy',
+        'Formulating Go / No-go recommendation',
+        'Saving analysis to MongoDB',
     ];
+    var TITLES = ['Collecting Data','Connecting to GPT-4o','Synthesising VoC','Finding Pain Points','Building Blueprint','Differentiation Strategy','Go / No-go Decision','Saving Results'];
+    var SUBS   = ['Loading scoring evidence & reviews…','Establishing GPT-4o connection…','Extracting Voice of Customer signals…','Analysing pain points & motivations…','Generating feature blueprint…','Crafting differentiation strategy…','Formulating recommendation…','Saving to MongoDB…'];
+    var TIMING = [0, 1000, 2500, 8000, 16000, 26000, 38000, 50000];
+    var PCTS   = [4, 14, 28, 45, 60, 74, 88, 95];
 
-    var stepsHtml = steps.map(function(s, i) {
-        return '<div class="scrape-step d-flex align-items-center gap-2 py-1 px-2 rounded" id="ai-step-'+i+'" style="opacity:.2;font-size:.85rem;transition:opacity .3s">' +
-            '<i class="'+s.icon+' text-muted me-1" id="ai-icon-'+i+'" style="width:16px;flex-shrink:0"></i>' +
-            '<span>'+esc(s.label)+'</span>' +
-        '</div>';
-    }).join('');
-
-    // Animated "thinking" dots
-    var dotHtml = '<div class="d-flex justify-content-center gap-2 mb-3" id="ai-dots">' +
-        [0,1,2,3].map(function(i){
-            return '<div style="width:10px;height:10px;border-radius:50%;background:#6366f1;animation:aiBounce 1.2s ease-in-out '+(i*0.2)+'s infinite"></div>';
-        }).join('') +
-    '</div>';
-
-    el.innerHTML =
-        '<div class="card shadow-sm border-0"><div class="card-body p-4">' +
-            '<div class="text-center mb-4">' +
-                '<div class="scraping-icon-pulse mb-2" style="color:#6366f1"><i class="bi bi-braces-asterisk" style="font-size:3rem"></i></div>' +
-                dotHtml +
-                '<h6 class="fw-bold mb-1">GPT-4o is thinking…</h6>' +
-                '<p class="text-muted small mb-0">Synthesising all evidence for <strong>' + esc(keyword) + '</strong> into market insights</p>' +
-            '</div>' +
-            '<div class="border rounded p-2 mb-4" style="background:#0f0f1a;font-family:monospace">' +
-                stepsHtml +
-            '</div>' +
-            '<div class="progress" style="height:8px;border-radius:4px">' +
-                '<div class="progress-bar progress-bar-striped progress-bar-animated" id="ai-pbar" style="width:4%;background:linear-gradient(90deg,#6366f1,#a855f7);transition:width .6s ease"></div>' +
-            '</div>' +
-            '<div class="d-flex justify-content-between mt-2">' +
-                '<small class="text-muted" id="ai-status-txt">Initializing…</small>' +
-                '<small class="text-muted" id="ai-pct">0%</small>' +
-            '</div>' +
-        '</div></div>';
-
-    // Inject bounce keyframe once
-    if (!document.getElementById('ai-bounce-css')) {
-        var st = document.createElement('style');
-        st.id = 'ai-bounce-css';
-        st.textContent = '@keyframes aiBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}';
-        document.head.appendChild(st);
-    }
-
-    function setProgress(pct, label) {
-        var bar = document.getElementById('ai-pbar');
-        var txt = document.getElementById('ai-status-txt');
-        var pctEl = document.getElementById('ai-pct');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = label;
-        if (pctEl) pctEl.textContent = pct + '%';
-    }
-
-    function activateStep(i) {
-        var row = document.getElementById('ai-step-'+i);
-        var icon = document.getElementById('ai-icon-'+i);
-        if (!row || !icon) return;
-        row.style.opacity = '1';
-        row.style.background = 'rgba(99,102,241,.15)';
-        row.style.color = '#a5b4fc';
-        icon.className = icon.className.replace('text-muted','') + ' text-primary spin';
-        var pct = Math.round(5 + ((i / steps.length) * 88));
-        setProgress(pct, steps[i].label + '…');
-    }
-
-    function completeStep(i) {
-        var row = document.getElementById('ai-step-'+i);
-        var icon = document.getElementById('ai-icon-'+i);
-        if (!row || !icon) return;
-        row.style.background = 'rgba(34,197,94,.08)';
-        row.style.color = '#86efac';
-        icon.className = 'bi bi-check-circle-fill text-success me-1';
-    }
-
-    // Step timing: GPT-4o calls typically take 20-60s total
-    var delays = [0, 1000, 2500, 8000, 16000, 26000, 38000, 50000];
+    var anim = buildTabAnim(container, {
+        prefix: 'ai', keyword: keyword,
+        icon: 'bi bi-braces-asterisk',
+        title: 'AI Analysis', subtitle: 'Collecting evidence…',
+        steps: STEPS, completeTitle: 'Analysis Complete!',
+    });
 
     var timers = [];
-    steps.forEach(function(s, i) {
-        var t = setTimeout(function() { activateStep(i); }, delays[i]);
-        timers.push(t);
-        if (i < steps.length - 1) {
-            var t2 = setTimeout(function() { completeStep(i); }, delays[i+1] - 400);
-            timers.push(t2);
-        }
+    TIMING.forEach(function(ms, i) {
+        timers.push(setTimeout(function() { anim.activate(i, TITLES[i], SUBS[i], PCTS[i]); }, ms));
     });
 
     try {
-        var r = await apiPost('/api/analyse/', { idea_id: ideaId });
+        var r = await apiPost('/api/analyse/', { idea_id: ideaId, force: !!force });
         timers.forEach(clearTimeout);
 
-        if (r.status === 'complete') {
-            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
-            var bar = document.getElementById('ai-pbar');
-            if (bar) { bar.style.width='100%'; bar.style.background='#22c55e'; bar.className='progress-bar'; }
-            setProgress(100, 'Analysis complete! Loading results…');
+        if (r.status === 'complete' || r.status === 'skipped') {
+            anim.complete();
             _lastActionError['analyse'] = null;
-            setTimeout(function() { loadIdea(); }, 700);
-
-        } else if (r.status === 'skipped') {
-            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
-            setProgress(100, 'Already analysed — loading results…');
-            setTimeout(function() { loadIdea(); }, 700);
-
+            showToast('AI Analysis complete — results ready!', 'success');
+            setTimeout(function() { loadIdea(); }, 750);
         } else {
+            anim.error();
             _lastActionError['analyse'] = r.error || 'Unknown error';
-            var bar2 = document.getElementById('ai-pbar');
-            if (bar2) { bar2.style.width='100%'; bar2.style.background='#ef4444'; bar2.className='progress-bar'; }
-            setProgress(100, 'Analysis failed');
-            el.innerHTML += '<div class="alert alert-danger mt-3 small mx-2 mb-2">' +
-                '<i class="bi bi-exclamation-triangle me-1"></i><strong>Analysis failed:</strong> ' +
-                esc((r.error || 'Unknown error').substring(0, 250)) + '</div>';
+            showToast('Analysis failed: ' + esc((r.error || '').substring(0, 120)), 'danger');
             setTimeout(function() { loadIdea(); }, 3000);
         }
     } catch(e) {
         timers.forEach(clearTimeout);
+        anim.error();
         _lastActionError['analyse'] = e.message;
-        var bar3 = document.getElementById('ai-pbar');
-        if (bar3) { bar3.style.width='100%'; bar3.style.background='#ef4444'; bar3.className='progress-bar'; }
-        setProgress(100, 'Request failed: ' + e.message);
+        showToast('Analysis failed: ' + e.message, 'danger');
         setTimeout(function() { loadIdea(); }, 3000);
     }
 }
 
+/* ═══════════════════════════════════════════════════════
+   Review Scraping — animated run
+═══════════════════════════════════════════════════════ */
 async function scrapeReviews() {
-    var el = document.getElementById('reviews-content');
+    var container = document.getElementById('reviews-content');
+    var keyword = (_ideaCache && _ideaCache.keyword) || 'product';
     var asins = (_ideaCache && _ideaCache.tier1_evidence && _ideaCache.tier1_evidence.competitor_asins) || [];
 
-    // Build step list
-    var steps = [
-        { label: 'Reading competitor ASINs from scoring data', icon: 'bi-upc-scan' },
-        { label: 'Connecting to ScrapingBee proxy network', icon: 'bi-wifi' },
+    // Build dynamic steps based on ASIN count
+    var STEPS = [
+        'Reading competitor ASINs from scoring data',
+        'Connecting to ScrapingBee proxy',
     ];
     asins.forEach(function(a, i) {
-        steps.push({ label: 'Fetching reviews for ' + a + ' (' + (i+1) + '/' + asins.length + ')', icon: 'bi-cloud-download', asin: a });
+        STEPS.push('Fetching reviews: ' + a + ' (' + (i + 1) + '/' + asins.length + ')');
     });
-    steps.push({ label: 'Parsing review content', icon: 'bi-braces' });
-    steps.push({ label: 'Saving to MongoDB', icon: 'bi-database-check' });
+    STEPS.push('Parsing review content');
+    STEPS.push('Saving to MongoDB');
 
-    // ASIN badge HTML
-    var asinHtml = asins.map(function(a) {
-        return '<span class="badge bg-light text-dark border me-1 mb-1" id="asin-b-'+a+'" style="font-size:.8rem;transition:all .3s">' +
-            '<i class="bi bi-clock text-muted me-1" id="asin-i-'+a+'"></i>' + esc(a) + '</span>';
-    }).join('');
+    // Timing: 0 → 1.2s → 9s per ASIN → +2s parse → +1.5s save
+    var TIMING = [0, 1200];
+    asins.forEach(function() { TIMING.push(TIMING[TIMING.length - 1] + 9000); });
+    TIMING.push(TIMING[TIMING.length - 1] + 2000);
+    TIMING.push(TIMING[TIMING.length - 1] + 1500);
 
-    // Step rows HTML
-    var stepsHtml = steps.map(function(s, i) {
-        return '<div class="scrape-step d-flex align-items-center gap-2 py-1 px-2 rounded" id="rstep-'+i+'" style="opacity:.25;font-size:.85rem">' +
-            '<i class="'+s.icon+' text-muted me-1" id="rstep-icon-'+i+'" style="width:16px;flex-shrink:0"></i>' +
-            '<span id="rstep-txt-'+i+'">'+esc(s.label)+'</span>' +
-            '<span class="ms-auto badge bg-secondary d-none" id="rstep-badge-'+i+'"></span>' +
-        '</div>';
-    }).join('');
+    // Progress evenly spaced
+    var PCTS = STEPS.map(function(s, i) { return Math.round(5 + (i / Math.max(STEPS.length - 1, 1)) * 88); });
 
-    el.innerHTML =
-        '<div class="card shadow-sm border-0"><div class="card-body p-4">' +
-            // Header
-            '<div class="text-center mb-4">' +
-                '<div class="scraping-icon-pulse mb-3"><i class="bi bi-robot text-primary" style="font-size:3rem"></i></div>' +
-                '<h6 class="fw-bold mb-1">Scraping Reviews</h6>' +
-                '<p class="text-muted small mb-0">Fetching customer reviews from competitor ASINs on Amazon</p>' +
-            '</div>' +
-            // ASIN badges
-            (asins.length ? '<div class="d-flex flex-wrap justify-content-center gap-1 mb-4">'+asinHtml+'</div>' : '') +
-            // Steps
-            '<div class="border rounded p-2 mb-4 bg-light" style="font-family:monospace">'+stepsHtml+'</div>' +
-            // Progress bar
-            '<div class="progress" style="height:8px;border-radius:4px">' +
-                '<div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="scrape-pbar" style="width:4%;transition:width .6s ease"></div>' +
-            '</div>' +
-            '<div class="d-flex justify-content-between mt-2">' +
-                '<small class="text-muted" id="scrape-status-txt">Initializing…</small>' +
-                '<small class="text-muted" id="scrape-pct">0%</small>' +
-            '</div>' +
-        '</div></div>';
+    var TITLES = ['Reading ASINs', 'Connecting to ScrapingBee'];
+    asins.forEach(function(a) { TITLES.push('Scraping ' + a); });
+    TITLES.push('Parsing Reviews'); TITLES.push('Saving to MongoDB');
 
-    function setProgress(pct, label) {
-        var bar = document.getElementById('scrape-pbar');
-        var txt = document.getElementById('scrape-status-txt');
-        var pctEl = document.getElementById('scrape-pct');
-        if (bar) bar.style.width = pct + '%';
-        if (txt) txt.textContent = label;
-        if (pctEl) pctEl.textContent = pct + '%';
-    }
+    var SUBS = ['Loading competitor ASINs from tier 1 evidence…', 'Establishing ScrapingBee proxy connection…'];
+    asins.forEach(function(a) { SUBS.push('Fetching customer reviews for ' + a + '…'); });
+    SUBS.push('Parsing review text & metadata…'); SUBS.push('Storing reviews in MongoDB…');
 
-    function activateStep(i) {
-        var row = document.getElementById('rstep-'+i);
-        var icon = document.getElementById('rstep-icon-'+i);
-        if (!row || !icon) return;
-        row.style.opacity = '1';
-        row.style.animation = 'stepSlideIn .3s ease forwards';
-        row.style.background = 'rgba(99,102,241,.06)';
-        icon.className = 'bi bi-arrow-right-circle-fill text-primary me-1 spin';
-        // ASIN badge — mark as "in progress"
-        var s = steps[i];
-        if (s && s.asin) {
-            var ab = document.getElementById('asin-b-'+s.asin);
-            var ai = document.getElementById('asin-i-'+s.asin);
-            if (ab) ab.className = 'badge border me-1 mb-1 asin-badge-scraping';
-            if (ai) { ai.className = 'bi bi-arrow-clockwise me-1 spin'; }
-        }
-        var pct = Math.round(5 + ((i / steps.length) * 85));
-        setProgress(pct, s ? s.label + '…' : '');
-    }
-
-    function completeStep(i) {
-        var row = document.getElementById('rstep-'+i);
-        var icon = document.getElementById('rstep-icon-'+i);
-        if (!row || !icon) return;
-        row.style.background = 'rgba(34,197,94,.06)';
-        icon.className = 'bi bi-check-circle-fill text-success me-1';
-        var s = steps[i];
-        if (s && s.asin) {
-            var ab = document.getElementById('asin-b-'+s.asin);
-            var ai = document.getElementById('asin-i-'+s.asin);
-            if (ab) ab.className = 'badge border me-1 mb-1 asin-badge-done';
-            if (ai) { ai.className = 'bi bi-check-circle-fill me-1'; }
-        }
-    }
-
-    function failStep(i) {
-        var icon = document.getElementById('rstep-icon-'+i);
-        if (icon) icon.className = 'bi bi-x-circle-fill text-danger me-1';
-        var s = steps[i];
-        if (s && s.asin) {
-            var ab = document.getElementById('asin-b-'+s.asin);
-            if (ab) ab.className = 'badge border border-danger text-danger me-1 mb-1';
-        }
-    }
-
-    // Schedule step animations while API runs
-    // Timing: first 2 quick, then ~10s each ASIN, then 2 final quick
-    var delays = [0, 1200];
-    var asinDelay = 9000;
-    asins.forEach(function() { delays.push(delays[delays.length-1] + asinDelay); });
-    delays.push(delays[delays.length-1] + 2000); // parse
-    delays.push(delays[delays.length-1] + 1200); // save
+    var anim = buildTabAnim(container, {
+        prefix: 'rv', keyword: keyword,
+        icon: 'bi bi-robot',
+        title: 'Scraping Reviews', subtitle: 'Reading competitor ASINs…',
+        steps: STEPS, completeTitle: 'Reviews Scraped!',
+    });
 
     var timers = [];
-    steps.forEach(function(s, i) {
-        var t = setTimeout(function() { activateStep(i); }, delays[i]);
-        timers.push(t);
-        if (i < steps.length - 1) {
-            var t2 = setTimeout(function() { completeStep(i); }, delays[i+1] - 400);
-            timers.push(t2);
-        }
+    TIMING.forEach(function(ms, i) {
+        timers.push(setTimeout(function() { anim.activate(i, TITLES[i], SUBS[i], PCTS[i]); }, ms));
     });
 
-    // Fire the real API call
     try {
         var r = await apiPost('/api/reviews/scrape/', { idea_id: ideaId });
-
-        // Clear pending timers — API finished
         timers.forEach(clearTimeout);
 
-        if (r.status === 'complete') {
-            // Rapid-complete all steps
-            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
-            var bar = document.getElementById('scrape-pbar');
-            if (bar) { bar.style.width='100%'; bar.className='progress-bar bg-success'; }
-            setProgress(100, 'Complete! Loading reviews…');
+        if (r.status === 'complete' || r.status === 'skipped') {
+            anim.complete();
             _lastActionError['reviews/scrape'] = null;
-            setTimeout(function() { loadIdea(); }, 700);
-
-        } else if (r.status === 'skipped') {
-            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
-            setProgress(100, 'Already scraped — loading results…');
-            setTimeout(function() { loadIdea(); }, 700);
-
+            setTimeout(function() { loadIdea(); }, 750);
         } else {
-            // error
+            anim.error();
             _lastActionError['reviews/scrape'] = r.error || 'Unknown error';
-            var activeIdx = steps.findIndex(function(s,i){ return !document.getElementById('rstep-icon-'+i) || document.getElementById('rstep-icon-'+i).className.includes('spin'); });
-            if (activeIdx >= 0) failStep(activeIdx);
-            var bar2 = document.getElementById('scrape-pbar');
-            if (bar2) { bar2.style.width='100%'; bar2.className='progress-bar bg-danger'; }
-            setProgress(100, 'Scraping failed');
-            el.innerHTML += '<div class="alert alert-danger mt-3 small mx-2 mb-2">' +
-                '<i class="bi bi-exclamation-triangle me-1"></i><strong>Scrape failed:</strong> ' +
-                esc((r.error || 'Unknown error').substring(0, 250)) + '</div>';
+            showToast('Scrape failed: ' + esc((r.error || '').substring(0, 120)), 'danger');
             setTimeout(function() { loadIdea(); }, 3000);
         }
     } catch(e) {
         timers.forEach(clearTimeout);
+        anim.error();
         _lastActionError['reviews/scrape'] = e.message;
-        var bar3 = document.getElementById('scrape-pbar');
-        if (bar3) { bar3.style.width='100%'; bar3.className='progress-bar bg-danger'; }
-        setProgress(100, 'Request failed');
+        showToast('Scrape failed: ' + e.message, 'danger');
         setTimeout(function() { loadIdea(); }, 3000);
     }
 }
 
+/* ═══════════════════════════════════════════════════════
+   Pre-Sourcing — animated run
+═══════════════════════════════════════════════════════ */
+async function runPresourcing(force) {
+    var container = document.getElementById('presourcing-content');
+    var keyword = (_ideaCache && _ideaCache.keyword) || 'product';
+
+    var STEPS = [
+        'Loading product evidence & AI analysis',
+        'Connecting to GPT-4o',
+        'Drafting Amazon listing title & bullets',
+        'Simulating buyer poll decision',
+        'Generating image shot list',
+        'Writing sourcing specification',
+        'Compiling supplier search terms',
+        'Saving pre-sourcing docs',
+    ];
+    var TITLES = ['Loading Evidence','Connecting to GPT-4o','Drafting Listing','Buyer Poll Simulation','Image Shot List','Sourcing Spec','Supplier Terms','Saving Docs'];
+    var SUBS   = ['Loading tier 1 & tier 2 evidence…','Establishing GPT-4o connection…','Drafting listing title & bullet points…','Running simulated buyer poll…','Generating image shot list…','Writing manufacturer spec…','Compiling Alibaba search terms…','Saving to MongoDB…'];
+    var TIMING = [0, 1500, 4000, 14000, 26000, 36000, 48000, 58000];
+    var PCTS   = [4, 16, 30, 46, 60, 74, 88, 95];
+
+    var anim = buildTabAnim(container, {
+        prefix: 'ps', keyword: keyword,
+        icon: 'bi bi-box-seam',
+        title: 'Pre-Sourcing Docs', subtitle: 'Loading evidence…',
+        steps: STEPS, completeTitle: 'Docs Generated!',
+    });
+
+    var timers = [];
+    TIMING.forEach(function(ms, i) {
+        timers.push(setTimeout(function() { anim.activate(i, TITLES[i], SUBS[i], PCTS[i]); }, ms));
+    });
+
+    try {
+        var r = await apiPost('/api/presource/', { idea_id: ideaId, force: !!force });
+        timers.forEach(clearTimeout);
+
+        if (r.status === 'complete' || r.status === 'skipped') {
+            anim.complete();
+            showToast('Pre-Sourcing docs generated successfully!', 'success');
+            setTimeout(function() { loadIdea(); }, 750);
+        } else {
+            anim.error();
+            showToast('Pre-sourcing failed: ' + esc((r.error || '').substring(0, 120)), 'danger');
+            setTimeout(function() { loadIdea(); }, 3000);
+        }
+    } catch(e) {
+        timers.forEach(clearTimeout);
+        anim.error();
+        showToast('Pre-sourcing failed: ' + e.message, 'danger');
+        setTimeout(function() { loadIdea(); }, 3000);
+    }
+}
+
+/* ─────────────────────────────────────────────────────
+   Status / action helpers
+───────────────────────────────────────────────────── */
 async function doStatus(newStatus) {
     try {
         await apiPatch('/api/ideas/' + ideaId + '/update/', { status: newStatus });
@@ -743,27 +821,31 @@ async function doStatus(newStatus) {
     }
 }
 
-async function doAction(endpoint) {
-    showToast('Running… this may take 30–60 seconds', 'info');
-    try {
-        var r = await apiPost('/api/' + endpoint + '/', { idea_id: ideaId });
-        if (r.status === 'complete') {
-            _lastActionError[endpoint] = null;
-            showToast('Done!', 'success');
-        } else if (r.status === 'error') {
-            _lastActionError[endpoint] = r.error || 'Unknown error';
-            showToast('Error: ' + (r.error || 'unknown'), 'danger');
-        } else if (r.status === 'skipped') {
-            _lastActionError[endpoint] = null;
-            showToast('Skipped: ' + (r.skip_reason || ''), 'warning');
-        }
-        await loadIdea();
-    } catch(e) {
-        _lastActionError[endpoint] = e.message;
-        showToast('Action failed: ' + e.message, 'danger');
-    }
+function renderStars(rating) {
+    if (rating == null) return '';
+    var full = Math.floor(rating), half = rating - full >= 0.5 ? 1 : 0;
+    var s = '';
+    for (var i = 0; i < full; i++) s += '<i class="bi bi-star-fill text-warning" style="font-size:.72rem"></i>';
+    if (half) s += '<i class="bi bi-star-half text-warning" style="font-size:.72rem"></i>';
+    return '<span class="text-nowrap">' + s + ' <small class="text-muted">' + rating.toFixed(1) + '</small></span>';
 }
 
-document.addEventListener('DOMContentLoaded', loadIdea);
+// Persist active tab in URL hash so refresh restores the same tab
+document.addEventListener('shown.bs.tab', function(e) {
+    var target = e.target && e.target.getAttribute('data-bs-target');
+    if (target && target.startsWith('#tab-')) {
+        history.replaceState(null, '', target);
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Restore tab from hash (e.g. #tab-analysis, #tab-reviews …)
+    var hash = window.location.hash;
+    if (hash && hash.startsWith('#tab-')) {
+        var btn = document.querySelector('[data-bs-target="' + hash + '"]');
+        if (btn) new bootstrap.Tab(btn).show();
+    }
+    loadIdea();
+});
 </script>
 {% endblock %}

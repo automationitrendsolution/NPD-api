@@ -452,8 +452,54 @@ function scoreBarColor(score) {
     return 'bg-danger';
 }
 
+/* ── Notification sound (Web Audio API) ─────────────────────────── */
+function playNotification(type) {
+    try {
+        var AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        var ctx = new AudioCtx();
+
+        function note(freq, startDelay, dur, vol, wave) {
+            var o = ctx.createOscillator();
+            var g = ctx.createGain();
+            o.type = wave || 'sine';
+            o.frequency.value = freq;
+            var t = ctx.currentTime + startDelay;
+            g.gain.setValueAtTime(0, t);
+            g.gain.linearRampToValueAtTime(vol || 0.22, t + 0.008);
+            g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+            o.connect(g);
+            g.connect(ctx.destination);
+            o.start(t);
+            o.stop(t + dur + 0.02);
+        }
+
+        if (type === 'success') {
+            /* ascending major triad chime — C5 → E5 → G5 */
+            note(523, 0,    0.14);
+            note(659, 0.11, 0.17);
+            note(784, 0.22, 0.22);
+        } else if (type === 'danger') {
+            /* descending minor tones — low warning buzz */
+            note(311, 0,    0.09, 0.28, 'square');
+            note(277, 0.11, 0.09, 0.24, 'square');
+            note(233, 0.22, 0.18, 0.20, 'square');
+        } else if (type === 'warning') {
+            /* two-tone caution — D5 then C5 */
+            note(587, 0,    0.13, 0.22, 'triangle');
+            note(523, 0.15, 0.18, 0.18, 'triangle');
+        } else {
+            /* info — single soft E5 ping */
+            note(659, 0, 0.18, 0.18);
+        }
+
+        setTimeout(function () { try { ctx.close(); } catch(e) {} }, 900);
+    } catch(e) {}
+}
+
 function showToast(msg, type) {
     type = type || 'success';
+    playNotification(type);
     var el = document.createElement('div');
     el.className = 'toast align-items-center text-bg-' + type + ' border-0 position-fixed bottom-0 end-0 m-3';
     el.style.zIndex = 9999;
