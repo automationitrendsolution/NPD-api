@@ -1,0 +1,37 @@
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: npd_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: npduser
+      MONGO_INITDB_ROOT_PASSWORD: npdpassword
+      MONGO_INITDB_DATABASE: npd_db
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  web:
+    build: .
+    container_name: npd_web
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      MONGO_URI: "mongodb://npduser:npdpassword@mongodb:27017/npd_db?authSource=admin"
+      MONGO_DB: "npd_db"
+      DJANGO_ALLOWED_HOSTS: "*"
+    ports:
+      - "8000:8000"
+volumes:
+  mongo_data:

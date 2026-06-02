@@ -1,27 +1,20 @@
 """
-IdeaMemoryStore — NDJSON-backed idea state machine.
+IdeaMemoryStore — MongoDB-backed idea state machine.
 
-NDJSON (Newline-Delimited JSON) means the file looks like this:
-    {"idea_id": "abc", "keyword": "bamboo mug", ...}   ← line 1 = idea 1
-    {"idea_id": "def", "keyword": "silicone bib", ...} ← line 2 = idea 2
+Replaces the NDJSON file store. Each idea is a document in the 'ideas'
+MongoDB collection with idea_id as a unique index for O(1) lookups.
 
-Why NDJSON instead of a plain JSON array?
-- Appending a new idea is a single line write, not a full file rewrite.
-- Each line is independently parseable, so a corrupt line does not break the rest.
-- Git diffs are human-readable — one changed line = one changed idea.
-- Easy to stream for large files without loading everything into memory.
-
-The store holds the file path and provides create / read / update / filter
-methods. All writes are atomic: we write to a temp file then rename it,
-so a crash mid-write can never produce a half-written file.
+The constructor still accepts a file_path argument for backward compatibility
+with existing callers (settings.IDEA_MEMORY_PATH) but ignores it.
+The MongoDB connection is always established via the MONGO_URI env variable.
 """
 
-import json
 import os
-import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
+
+from pymongo import MongoClient, DESCENDING
 
 from .schema import VALID_SOURCES, VALID_STATUSES, build_default_idea
 
@@ -30,82 +23,54 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _load_dotenv():
+    env_path = Path(__file__).resolve().parents[2] / ".env"
+    if not env_path.exists():
+        return
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.split("#")[0] if '"' not in value and "'" not in value else value
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
+
+# Module-level client — MongoClient is thread-safe and manages its own pool.
+_mongo_client: Optional[MongoClient] = None
+
+
+def _get_client() -> MongoClient:
+    global _mongo_client
+    if _mongo_client is None:
+        uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/npd_db")
+        _mongo_client = MongoClient(uri)
+    return _mongo_client
+
+
+def _get_collection():
+    db_name = os.getenv("MONGO_DB", "npd_db")
+    return _get_client()[db_name]["ideas"]
+
+
 class IdeaMemoryStore:
     """
-    Manages all read/write operations against the NDJSON idea memory file.
+    Manages all read/write operations against the MongoDB 'ideas' collection.
 
     Usage
     -----
-        store = IdeaMemoryStore("/path/to/data/ideas.ndjson")
+        store = IdeaMemoryStore(settings.IDEA_MEMORY_PATH)  # path argument ignored
         idea  = store.create("bamboo travel mug", source="human_seeded")
         store.update(idea["idea_id"], status="scored", tier1_score=74)
         ideas = store.filter(status="scored")
     """
 
-    def __init__(self, file_path: str):
-        """
-        Parameters
-        ----------
-        file_path : str
-            Absolute path to the NDJSON file.
-            The file and its parent directory are created automatically
-            if they do not already exist.
-        """
-        self.file_path = Path(file_path)
-        self.file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Create an empty file if it does not yet exist.
-        # open(..., "a").close() creates the file without truncating it.
-        if not self.file_path.exists():
-            self.file_path.open("a").close()
-
-    # ── Private helpers ───────────────────────────────────────────────────────
-
-    def _read_all(self) -> list[dict]:
-        """
-        Reads every line in the NDJSON file and returns a list of idea dicts.
-
-        Lines that are blank or cannot be parsed as JSON are silently skipped
-        so a single bad line never takes the whole store down.
-        """
-        ideas = []
-        with self.file_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    ideas.append(json.loads(line))
-                except json.JSONDecodeError:
-                    # Skip corrupt lines; in production you'd also log this.
-                    pass
-        return ideas
-
-    def _write_all(self, ideas: list[dict]) -> None:
-        """
-        Overwrites the NDJSON file with the supplied list of ideas.
-
-        Uses an atomic write pattern:
-            1. Write to a temp file in the same directory.
-            2. Rename the temp file over the real file.
-        If the process is killed between steps 1 and 2, the original file
-        is untouched. The OS rename is atomic on both Linux and Windows.
-        """
-        dir_ = self.file_path.parent
-        fd, tmp_path = tempfile.mkstemp(dir=dir_, suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                for idea in ideas:
-                    f.write(json.dumps(idea, ensure_ascii=False) + "\n")
-            # Atomic rename: replaces the destination if it exists.
-            os.replace(tmp_path, self.file_path)
-        except Exception:
-            # Clean up the temp file if anything goes wrong.
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
+    def __init__(self, file_path=None):
+        self._col = _get_collection()
+        # Unique index on idea_id ensures fast lookups and prevents duplicates.
+        self._col.create_index("idea_id", unique=True)
 
     # ── Create ────────────────────────────────────────────────────────────────
 
@@ -117,23 +82,19 @@ class IdeaMemoryStore:
         allow_duplicate: bool = False,
     ) -> dict:
         """
-        Creates a new idea record and appends it to the NDJSON file.
+        Creates a new idea document and inserts it into MongoDB.
 
         Parameters
         ----------
         keyword : str
-            The Amazon search keyword. Will be lowercased and stripped.
-
+            The Amazon search keyword. Lowercased and stripped before storage.
         concept : str
             Optional human description of the product concept.
-
         source : str
             "human_seeded" | "autonomous" | "adjacency_mining"
-
         allow_duplicate : bool
             If False (default), raises ValueError when an idea with the same
             keyword already exists in a non-dismissed status.
-            Set to True to force a fresh evaluation of the same keyword.
 
         Returns
         -------
@@ -155,49 +116,34 @@ class IdeaMemoryStore:
                 )
 
         idea = build_default_idea(normalised_keyword, concept, source)
-
-        # Append a single line — more efficient than reading+rewriting the whole file.
-        with self.file_path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(idea, ensure_ascii=False) + "\n")
-
+        self._col.insert_one({**idea})
         return idea
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
     def get(self, idea_id: str) -> Optional[dict]:
-        """
-        Returns the idea with the given idea_id, or None if not found.
-        """
-        for idea in self._read_all():
-            if idea.get("idea_id") == idea_id:
-                return idea
-        return None
+        """Returns the idea with the given idea_id, or None if not found."""
+        return self._col.find_one({"idea_id": idea_id}, {"_id": 0})
 
     def get_by_keyword(self, keyword: str) -> Optional[dict]:
         """
-        Returns the most recently created idea that matches the keyword.
+        Returns the most recently inserted idea that matches the keyword.
         Keyword matching is case-insensitive.
-
-        Returns None if no match is found.
         """
         keyword = keyword.strip().lower()
-        matches = [i for i in self._read_all() if i.get("keyword") == keyword]
-        if not matches:
-            return None
-        # Most recently created = last in the file (we always append).
-        return matches[-1]
+        return self._col.find_one(
+            {"keyword": keyword},
+            {"_id": 0},
+            sort=[("_id", DESCENDING)],
+        )
 
-    def list_all(self) -> list[dict]:
-        """
-        Returns all idea records as a list.
-        """
-        return self._read_all()
+    def list_all(self) -> list:
+        """Returns all idea records as a list."""
+        return list(self._col.find({}, {"_id": 0}))
 
     def count(self) -> int:
-        """
-        Returns the total number of idea records in the store.
-        """
-        return len(self._read_all())
+        """Returns the total number of idea records in the store."""
+        return self._col.count_documents({})
 
     # ── Filter ────────────────────────────────────────────────────────────────
 
@@ -211,100 +157,46 @@ class IdeaMemoryStore:
         presourcing_done: Optional[bool] = None,
         has_flag: Optional[str] = None,
         min_tier1_score: Optional[float] = None,
-    ) -> list[dict]:
+    ) -> list:
         """
-        Returns ideas that match ALL supplied criteria.
-
-        Any parameter left as None is not used as a filter.
-
-        Parameters
-        ----------
-        status : str
-            e.g. "scored", "shortlisted"
-
-        source : str
-            e.g. "human_seeded", "autonomous"
-
-        tier1_done : bool
-            True → only ideas that have completed Tier 1 scoring.
-            False → only ideas waiting for Tier 1 scoring.
-
-        reviews_scraped : bool
-            Filter by whether review scraping has completed.
-
-        research_done : bool
-            Filter by whether AI deep research has completed.
-
-        presourcing_done : bool
-            Filter by whether pre-sourcing generation has completed.
-
-        has_flag : str
-            Returns only ideas whose flags list contains this exact string.
-            e.g. has_flag="hard_kill"
-
-        min_tier1_score : float
-            Returns only ideas whose tier1_score >= this value.
-
-        Returns
-        -------
-        list[dict]
-            List of matching idea records, in creation order.
+        Returns ideas that match ALL supplied criteria (AND logic).
+        Any parameter left as None is not applied as a filter.
         """
-        results = self._read_all()
-
+        query = {}
         if status is not None:
-            results = [i for i in results if i.get("status") == status]
-
+            query["status"] = status
         if source is not None:
-            results = [i for i in results if i.get("source") == source]
-
+            query["source"] = source
         if tier1_done is not None:
-            results = [i for i in results if i.get("tier1_done") == tier1_done]
-
+            query["tier1_done"] = tier1_done
         if reviews_scraped is not None:
-            results = [i for i in results if i.get("reviews_scraped") == reviews_scraped]
-
+            query["reviews_scraped"] = reviews_scraped
         if research_done is not None:
-            results = [i for i in results if i.get("research_done") == research_done]
-
+            query["research_done"] = research_done
         if presourcing_done is not None:
-            results = [i for i in results if i.get("presourcing_done") == presourcing_done]
-
+            query["presourcing_done"] = presourcing_done
         if has_flag is not None:
-            results = [i for i in results if has_flag in i.get("flags", [])]
-
+            query["flags"] = has_flag
         if min_tier1_score is not None:
-            results = [
-                i for i in results
-                if i.get("tier1_score") is not None and i["tier1_score"] >= min_tier1_score
-            ]
+            query["tier1_score"] = {"$gte": min_tier1_score}
 
-        return results
+        return list(self._col.find(query, {"_id": 0}))
 
     # ── Update ────────────────────────────────────────────────────────────────
 
     def update(self, idea_id: str, **fields) -> dict:
         """
-        Updates fields on an existing idea record.
+        Updates fields on an existing idea document.
 
-        How it works
-        ------------
-        1. Read every line into memory.
-        2. Find the idea with the matching idea_id.
-        3. Deep-merge the supplied fields into the existing record.
-        4. Stamp updated_at with the current time.
-        5. Write all records back to the file (atomic temp-file rename).
+        Performs a shallow merge for dict fields so a caller can update one
+        sub-key (e.g. tier1_scores.demand) without wiping the rest.
 
         Parameters
         ----------
         idea_id : str
             The unique ID of the idea to update.
-
         **fields : any
-            Any top-level field(s) from the idea schema, e.g.:
-                store.update(idea_id, status="scored", tier1_score=74)
-                store.update(idea_id, flags=["low_demand"])
-                store.update(idea_id, tier1_done=True, tier1_at="2026-06-01T10:00:00+00:00")
+            Any top-level field(s) from the idea schema.
 
         Returns
         -------
@@ -316,29 +208,17 @@ class IdeaMemoryStore:
         KeyError
             If no idea with the given idea_id exists.
         ValueError
-            If a supplied field value fails validation (e.g. bad status string).
+            If a supplied status value is not in VALID_STATUSES.
         """
-        # Validate status if it is being changed
         if "status" in fields and fields["status"] not in VALID_STATUSES:
             raise ValueError(
                 f"Invalid status '{fields['status']}'. Must be one of {VALID_STATUSES}"
             )
 
-        ideas = self._read_all()
-        target_index = None
-
-        for i, idea in enumerate(ideas):
-            if idea.get("idea_id") == idea_id:
-                target_index = i
-                break
-
-        if target_index is None:
+        existing = self.get(idea_id)
+        if existing is None:
             raise KeyError(f"No idea found with idea_id='{idea_id}'")
 
-        # Merge supplied fields into the existing record.
-        # For dict fields (tier1_scores, tier1_evidence, etc.) we do a shallow
-        # merge so the caller can update one sub-key without wiping the rest.
-        existing = ideas[target_index]
         for key, value in fields.items():
             if isinstance(value, dict) and isinstance(existing.get(key), dict):
                 existing[key] = {**existing[key], **value}
@@ -346,77 +226,44 @@ class IdeaMemoryStore:
                 existing[key] = value
 
         existing["updated_at"] = _now_iso()
-        ideas[target_index] = existing
-        self._write_all(ideas)
+        self._col.update_one({"idea_id": idea_id}, {"$set": existing})
         return existing
 
     # ── Flag helpers ──────────────────────────────────────────────────────────
 
     def add_flag(self, idea_id: str, flag: str) -> dict:
-        """
-        Adds a flag string to the idea's flags list (no duplicates).
-
-        Example
-        -------
-            store.add_flag(idea_id, "hard_kill")
-            store.add_flag(idea_id, "no_ba_data")
-        """
+        """Adds a flag string to the idea's flags list (no duplicates)."""
         idea = self.get(idea_id)
         if idea is None:
             raise KeyError(f"No idea found with idea_id='{idea_id}'")
-
         flags = idea.get("flags", [])
         if flag not in flags:
             flags.append(flag)
         return self.update(idea_id, flags=flags)
 
     def remove_flag(self, idea_id: str, flag: str) -> dict:
-        """
-        Removes a flag string from the idea's flags list.
-        Does nothing if the flag is not present.
-        """
+        """Removes a flag string from the idea's flags list."""
         idea = self.get(idea_id)
         if idea is None:
             raise KeyError(f"No idea found with idea_id='{idea_id}'")
-
         flags = [f for f in idea.get("flags", []) if f != flag]
         return self.update(idea_id, flags=flags)
 
     # ── Cooldown helpers ──────────────────────────────────────────────────────
 
     def set_cooldown(self, idea_id: str, hours: int) -> dict:
-        """
-        Sets a cooldown on the idea so the scorer skips it for `hours` hours.
-
-        The scorer should call is_on_cooldown() before processing an idea.
-
-        Example
-        -------
-            # Re-evaluate this idea in 48 hours
-            store.set_cooldown(idea_id, hours=48)
-        """
+        """Sets a cooldown so the scorer skips this idea for `hours` hours."""
         until = (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
         return self.update(idea_id, cooldown_until=until)
 
     def is_on_cooldown(self, idea_id: str) -> bool:
-        """
-        Returns True if the idea is still within its cooldown window.
-
-        The scorer calls this before spending scrape credits on an idea.
-
-        Example
-        -------
-            if store.is_on_cooldown(idea_id):
-                continue  # skip this idea, check again later
-        """
+        """Returns True if the idea is still within its cooldown window."""
         idea = self.get(idea_id)
         if idea is None:
             return False
-
         cooldown_until = idea.get("cooldown_until")
         if not cooldown_until:
             return False
-
         try:
             until_dt = datetime.fromisoformat(cooldown_until)
             return datetime.now(timezone.utc) < until_dt
@@ -426,13 +273,7 @@ class IdeaMemoryStore:
     # ── Status transition helpers ─────────────────────────────────────────────
 
     def set_status(self, idea_id: str, new_status: str) -> dict:
-        """
-        Convenience wrapper to update just the status field.
-
-        Example
-        -------
-            store.set_status(idea_id, "scored")
-        """
+        """Convenience wrapper to update just the status field."""
         return self.update(idea_id, status=new_status)
 
     # ── Delete ────────────────────────────────────────────────────────────────
@@ -440,27 +281,15 @@ class IdeaMemoryStore:
     def delete(self, idea_id: str) -> bool:
         """
         Permanently removes an idea from the store.
-
-        Returns True if the idea was found and deleted, False if not found.
-
-        Use with caution — prefer set_status("dismissed") to keep an audit trail.
+        Returns True if found and deleted, False if not found.
+        Prefer set_status("dismissed") to keep an audit trail.
         """
-        ideas = self._read_all()
-        filtered = [i for i in ideas if i.get("idea_id") != idea_id]
-
-        if len(filtered) == len(ideas):
-            return False  # Nothing was removed
-
-        self._write_all(filtered)
-        return True
+        result = self._col.delete_one({"idea_id": idea_id})
+        return result.deleted_count > 0
 
     # ── Exists ────────────────────────────────────────────────────────────────
 
     def exists(self, keyword: str) -> bool:
-        """
-        Returns True if any non-dismissed idea already exists for this keyword.
-
-        The scorer calls this before creating a duplicate entry.
-        """
+        """Returns True if any non-dismissed idea exists for this keyword."""
         idea = self.get_by_keyword(keyword)
         return idea is not None and idea.get("status") != "dismissed"
