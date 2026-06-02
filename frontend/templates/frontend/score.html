@@ -118,6 +118,68 @@
     </div>
 
 </div>
+
+<!-- Scoring History -->
+<div class="card mt-4" id="history-card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history text-secondary me-2"></i>Recent Scoring History</span>
+        <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-history" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <div id="history-loading" class="text-center text-muted py-4" style="font-size:.85rem">
+            <span class="spinner-border spinner-border-sm me-2"></span>Loading…
+        </div>
+        <div id="history-empty" class="text-center text-muted py-4 d-none" style="font-size:.85rem">
+            No scored ideas yet.
+        </div>
+        <div class="table-responsive d-none" id="history-table-wrap">
+            <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
+                <thead class="table-light">
+                    <tr>
+                        <th>Keyword</th>
+                        <th class="text-center" style="width:60px">Score</th>
+                        <th style="width:110px">Status</th>
+                        <th>Flags</th>
+                        <th style="width:90px">Scored</th>
+                        <th style="width:72px"></th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="rounded-circle bg-danger bg-opacity-10 d-flex align-items-center justify-content-center" style="width:40px;height:40px;flex-shrink:0">
+                        <i class="bi bi-trash text-danger"></i>
+                    </span>
+                    <h6 class="modal-title mb-0" id="deleteModalLabel">Delete Idea</h6>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3">
+                <p class="mb-1">Are you sure you want to delete:</p>
+                <p class="fw-semibold mb-2" id="delete-modal-keyword" style="font-size:1rem"></p>
+                <p class="text-muted small mb-0"><i class="bi bi-exclamation-triangle me-1 text-warning"></i>This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="delete-modal-confirm">
+                    <i class="bi bi-trash me-1"></i>Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -149,6 +211,7 @@ document.getElementById('btn-score').addEventListener('click', async function() 
             force_rescore: document.getElementById('inp-force').checked
         });
         renderResults(r);
+        loadHistory();
     } catch(e) {
         showToast('Scoring failed: ' + e.message, 'danger');
     } finally {
@@ -222,6 +285,87 @@ document.getElementById('btn-score-another').addEventListener('click', function(
     document.getElementById('inp-keyword').value = '';
     document.getElementById('inp-concept').value = '';
     document.getElementById('inp-keyword').focus();
+});
+
+async function loadHistory() {
+    document.getElementById('history-loading').classList.remove('d-none');
+    document.getElementById('history-empty').classList.add('d-none');
+    document.getElementById('history-table-wrap').classList.add('d-none');
+    try {
+        var data = await apiGet('/api/ideas/');
+        var ideas = (data.ideas || []).filter(function(i) { return i.tier1_score != null; });
+        ideas.sort(function(a, b) { return (b.updated_at || '').localeCompare(a.updated_at || ''); });
+        ideas = ideas.slice(0, 20);
+        document.getElementById('history-loading').classList.add('d-none');
+        if (!ideas.length) {
+            document.getElementById('history-empty').classList.remove('d-none');
+            return;
+        }
+        var tbody = document.getElementById('history-tbody');
+        tbody.innerHTML = ideas.map(function(i) {
+            var score = i.tier1_score != null ? i.tier1_score : '—';
+            var scoreColor = score >= 70 ? 'text-success' : score >= 55 ? 'text-warning' : score >= 45 ? 'text-info' : 'text-danger';
+            var flags = i.flags && i.flags.length
+                ? i.flags.slice(0, 3).map(function(f) {
+                    return '<span class="badge bg-secondary me-1" style="font-size:.7rem;font-weight:500">' + esc(f.replace(/_/g,' ')) + '</span>';
+                }).join('') + (i.flags.length > 3 ? '<span class="text-muted" style="font-size:.75rem">+' + (i.flags.length - 3) + '</span>' : '')
+                : '<span class="text-muted">—</span>';
+            return '<tr>' +
+                '<td class="fw-semibold">' + esc(i.keyword || '—') + '</td>' +
+                '<td class="text-center fw-bold ' + scoreColor + '">' + score + '</td>' +
+                '<td>' + statusBadge(i.status) + '</td>' +
+                '<td>' + flags + '</td>' +
+                '<td class="text-muted">' + relativeTime(i.updated_at) + '</td>' +
+                '<td><div class="d-flex gap-1">' +
+                    '<a href="/ideas/' + esc(i.idea_id) + '/" class="btn btn-outline-secondary btn-sm py-0 px-1" title="View detail"><i class="bi bi-box-arrow-up-right"></i></a>' +
+                    '<button class="btn btn-outline-danger btn-sm py-0 px-1" title="Delete idea" onclick="deleteIdeaFromHistory(event,\'' + esc(i.idea_id) + '\',\'' + esc(i.keyword || '') + '\')"><i class="bi bi-trash"></i></button>' +
+                '</div></td>' +
+                '</tr>';
+        }).join('');
+        document.getElementById('history-table-wrap').classList.remove('d-none');
+    } catch(e) {
+        document.getElementById('history-loading').classList.add('d-none');
+        document.getElementById('history-empty').classList.remove('d-none');
+    }
+}
+
+var _deleteTarget = null;
+
+function deleteIdeaFromHistory(ev, ideaId, keyword) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    _deleteTarget = { ideaId: ideaId, keyword: keyword };
+    document.getElementById('delete-modal-keyword').textContent = '"' + keyword + '"';
+    var confirmBtn = document.getElementById('delete-modal-confirm');
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete';
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+document.getElementById('delete-modal-confirm').addEventListener('click', async function() {
+    if (!_deleteTarget) return;
+    var { ideaId, keyword } = _deleteTarget;
+    var confirmBtn = this;
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';
+    try {
+        await fetch('/api/ideas/' + ideaId + '/delete/', { method: 'DELETE' });
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+        showToast('"' + keyword + '" deleted', 'success');
+        loadHistory();
+    } catch(e) {
+        showToast('Delete failed', 'danger');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete';
+    }
+    _deleteTarget = null;
+});
+
+document.getElementById('btn-refresh-history').addEventListener('click', loadHistory);
+document.addEventListener('DOMContentLoaded', function() {
+    loadHistory();
+    var kw = new URLSearchParams(window.location.search).get('kw');
+    if (kw) document.getElementById('inp-keyword').value = kw;
 });
 </script>
 {% endblock %}

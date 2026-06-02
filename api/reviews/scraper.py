@@ -38,27 +38,20 @@ def fetch_amazon_reviews(asin, page=1):
     if not SCRAPINGBEE_API_KEY:
         raise ValueError("SCRAPINGBEE_API_KEY environment variable is required")
 
-    # Amazon review pages are server-side rendered (reviews in initial HTML),
-    # so render_js=false avoids the headless-browser fingerprint that triggers
-    # bot detection. premium_proxy still rotates IPs for anonymity.
-    url = (
-        f"https://www.amazon.com/product-reviews/{asin}"
-        f"?pageNumber={page}"
-        f"&sortBy=recent"
-        f"&reviewerType=all_reviews"
-        f"&filterByStar=all_stars"
-    )
+    url = f"https://www.amazon.com/product-reviews/{asin}?pageNumber={page}&reviewerType=all_reviews"
 
     response = requests.get(
         "https://app.scrapingbee.com/api/v1/",
         params={
-            "api_key":       SCRAPINGBEE_API_KEY,
-            "url":           url,
-            "render_js":     "false",
-            "premium_proxy": "true",
-            "country_code":  "us",
+            "api_key":        SCRAPINGBEE_API_KEY,
+            "url":            url,
+            "render_js":      "true",
+            "block_resources": "false",
+            "premium_proxy":  "true",
+            "country_code":   "us",
+            "wait":           "2000",
         },
-        timeout=90,
+        timeout=120,
     )
 
     if not response.ok:

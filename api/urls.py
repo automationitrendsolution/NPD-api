@@ -16,6 +16,7 @@ urlpatterns = [
     path("ideas/create/",               views.idea_create, name="idea-create"),
     path("ideas/<str:idea_id>/",        views.idea_detail, name="idea-detail"),
     path("ideas/<str:idea_id>/update/", views.idea_update, name="idea-update"),
+    path("ideas/<str:idea_id>/delete/", views.idea_delete, name="idea-delete"),
 
     # ── Brand Analytics ───────────────────────────────────────────────────────
     # GET  /api/brand-analytics/lookup/?keyword=bamboo+mug        → single lookup
@@ -24,6 +25,7 @@ urlpatterns = [
     path("brand-analytics/lookup/",       views.ba_lookup,        name="ba-lookup"),
     path("brand-analytics/lookup-batch/", views.ba_lookup_batch,  name="ba-lookup-batch"),
     path("brand-analytics/status/",       views.ba_status,        name="ba-status"),
+    path("brand-analytics/ingest/",       views.ba_ingest,        name="ba-ingest"),
 
     # ── Tier 1 scoring ────────────────────────────────────────────────────────
     # POST /api/score/  → run full Tier 1 pipeline for a keyword or idea_id
@@ -38,4 +40,8 @@ urlpatterns = [
     # ── Tier 2A — Review scraping ─────────────────────────────────────────────
     # POST /api/reviews/scrape/ → scrape Amazon reviews for a shortlisted idea
     path("reviews/scrape/", views.scrape_reviews_view, name="scrape-reviews"),
+
+    # ── System health ──────────────────────────────────────────────────────────
+    # GET /api/db-status/ → MongoDB connectivity + collection stats
+    path("db-status/", views.db_status, name="db-status"),
 ]

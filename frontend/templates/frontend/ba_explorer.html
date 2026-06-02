@@ -7,12 +7,22 @@
 
 <!-- DB Status -->
 <div class="card mb-4">
-    <div class="card-header d-flex"><i class="bi bi-database text-primary"></i> Database Status</div>
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-database text-primary me-1"></i> Database Status</span>
+        <button class="btn btn-sm btn-outline-primary" id="btn-ingest" onclick="ingestData()">
+            <i class="bi bi-cloud-download me-1"></i>Import from SP-API
+        </button>
+    </div>
     <div class="card-body" id="db-status-body">
         <div class="text-center py-2">
             <div class="spinner-border spinner-border-sm text-secondary"></div>
         </div>
     </div>
+</div>
+
+<!-- Ingest panel (hidden by default) -->
+<div class="card mb-4 border-primary" id="ingest-panel" style="display:none!important">
+    <div class="card-body" id="ingest-content"></div>
 </div>
 
 <!-- Lookup panels -->
@@ -105,9 +115,9 @@ async function loadStatus() {
                 '</div>';
         } else {
             el.innerHTML =
-                '<div class="d-flex align-items-center gap-3">' +
-                    '<span class="badge bg-danger px-3 py-2" style="font-size:.85rem">No Data</span>' +
-                    '<div class="text-muted small">Run <code class="bg-light border rounded px-2 py-1">python manage.py ingest_brand_analytics</code> to populate the index.</div>' +
+                '<div class="d-flex align-items-center gap-3 flex-wrap">' +
+                    '<span class="badge bg-warning text-dark px-3 py-2" style="font-size:.85rem">No Data</span>' +
+                    '<div class="text-muted small">Click <strong>Import from SP-API</strong> above to pull the latest Brand Analytics report, or run <code class="bg-light border rounded px-2 py-1">python manage.py ingest_brand_analytics</code> in the container.</div>' +
                 '</div>';
         }
     } catch(e) {
@@ -189,6 +199,122 @@ async function batchLookup() {
     } catch(e) {
         el.innerHTML = '<div class="alert alert-danger py-2 mb-0">Error: ' + esc(e.message) + '</div>';
     }
+}
+
+async function ingestData() {
+    var panel = document.getElementById('ingest-panel');
+    var el    = document.getElementById('ingest-content');
+    var btn   = document.getElementById('btn-ingest');
+
+    panel.style.display = '';
+    btn.disabled = true;
+
+    var steps = [
+        { label: 'Connecting to Amazon SP-API',              icon: 'bi-cloud' },
+        { label: 'Authenticating with LWA token exchange',   icon: 'bi-shield-lock' },
+        { label: 'Requesting Brand Analytics report',        icon: 'bi-file-earmark-bar-graph' },
+        { label: 'Waiting for Amazon to build the report',   icon: 'bi-hourglass-split' },
+        { label: 'Downloading report from S3',               icon: 'bi-cloud-arrow-down' },
+        { label: 'Parsing search-term rows',                 icon: 'bi-table' },
+        { label: 'Writing to local SQLite index',            icon: 'bi-database-add' },
+        { label: 'Building search indexes',                  icon: 'bi-lightning' },
+    ];
+
+    var stepTiming = [0, 600, 1400, 2200, 60000, 62000, 64000, 66000];
+
+    var stepsHtml = steps.map(function(s, i) {
+        return '<div class="d-flex align-items-center gap-2 py-1 ingest-step" id="istep-' + i + '" style="opacity:.35;font-size:.84rem">' +
+            '<i class="' + s.icon + ' text-primary" style="width:18px;font-size:1rem"></i>' +
+            '<span class="flex-grow-1">' + s.label + '</span>' +
+            '<span class="step-icon text-muted"><i class="bi bi-clock text-secondary" style="font-size:.75rem"></i></span>' +
+        '</div>';
+    }).join('');
+
+    el.innerHTML =
+        '<div class="d-flex align-items-center gap-3 mb-3">' +
+            '<span class="scraping-icon-pulse" style="font-size:1.6rem;color:#6366f1"><i class="bi bi-cloud-download"></i></span>' +
+            '<div>' +
+                '<div class="fw-semibold" id="ingest-heading">Importing Brand Analytics data…</div>' +
+                '<div class="text-muted small" id="ingest-status">Connecting to Amazon SP-API — this may take several minutes while Amazon builds your report.</div>' +
+            '</div>' +
+        '</div>' +
+        '<div class="mb-3" style="background:#f8f9fa;border-radius:8px;padding:10px 14px">' + stepsHtml + '</div>' +
+        '<div class="progress" style="height:6px"><div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="ingest-bar" style="width:4%"></div></div>';
+
+    function setStep(i, done) {
+        var el2 = document.getElementById('istep-' + i);
+        if (!el2) return;
+        el2.style.opacity = '1';
+        var ico = el2.querySelector('.step-icon');
+        if (ico) ico.innerHTML = done
+            ? '<i class="bi bi-check-circle-fill text-success" style="font-size:.85rem"></i>'
+            : '<i class="bi bi-arrow-repeat spin text-primary" style="font-size:.85rem"></i>';
+    }
+    function setBar(pct) {
+        var b = document.getElementById('ingest-bar');
+        if (b) b.style.width = pct + '%';
+    }
+
+    var timers = stepTiming.map(function(t, i) {
+        return setTimeout(function() {
+            if (i > 0) {
+                var prev = document.getElementById('istep-' + (i-1));
+                if (prev) { prev.style.opacity = '1'; var ico = prev.querySelector('.step-icon'); if (ico) ico.innerHTML = '<i class="bi bi-check-circle-fill text-success" style="font-size:.85rem"></i>'; }
+            }
+            setStep(i, false);
+            setBar(Math.round(4 + (i / steps.length) * 90));
+            var statusEl = document.getElementById('ingest-status');
+            if (statusEl) statusEl.textContent = steps[i].label + '…';
+        }, t);
+    });
+
+    try {
+        var result = await apiPost('/api/brand-analytics/ingest/', {});
+        timers.forEach(clearTimeout);
+
+        if (result.status === 'success') {
+            setBar(100);
+            var bar = document.getElementById('ingest-bar');
+            if (bar) { bar.classList.remove('progress-bar-animated','bg-primary'); bar.classList.add('bg-success'); }
+            document.getElementById('ingest-heading').textContent = 'Import complete!';
+            document.getElementById('ingest-status').innerHTML =
+                '<span class="text-success fw-semibold">' + (result.rows_inserted || 0).toLocaleString() + ' search terms indexed</span>' +
+                ' in ' + (result.duration_seconds || 0) + 's';
+            steps.forEach(function(_, i) {
+                var s = document.getElementById('istep-' + i);
+                if (s) { s.style.opacity = '1'; var ico = s.querySelector('.step-icon'); if (ico) ico.innerHTML = '<i class="bi bi-check-circle-fill text-success" style="font-size:.85rem"></i>'; }
+            });
+            setTimeout(function() { loadStatus(); panel.style.display = 'none'; }, 2000);
+        } else {
+            var errMsg = result.error || 'Unknown error';
+            var bar = document.getElementById('ingest-bar');
+            if (bar) { bar.classList.remove('progress-bar-animated','bg-primary'); bar.classList.add('bg-danger'); bar.style.width = '100%'; }
+            document.getElementById('ingest-heading').textContent = 'Import failed';
+
+            // Diagnose common SP-API errors
+            var hint = '';
+            if (errMsg.includes('LWA') || errMsg.includes('expired') || errMsg.includes('Unauthorized') || errMsg.includes('403')) {
+                hint = '<div class="alert alert-warning mt-2 mb-0 py-2" style="font-size:.82rem">' +
+                    '<i class="bi bi-exclamation-triangle me-1"></i><strong>SP-API Auth Error.</strong> Check: ' +
+                    '<ol class="mb-0 mt-1"><li>Seller Central → Apps & Services → Develop Apps → your app → IAM ARN must be <code>arn:aws:iam::905418272631:user/Anna_Lakshmi</code></li>' +
+                    '<li>SP-API app roles must include <strong>Reports</strong> and <strong>Brand Analytics</strong></li>' +
+                    '<li>Re-authorize the app in Seller Central if the refresh token was revoked</li></ol></div>';
+            } else if (errMsg.includes('EnvironmentError') || errMsg.includes('Missing required')) {
+                hint = '<div class="alert alert-warning mt-2 mb-0 py-2" style="font-size:.82rem">' +
+                    '<i class="bi bi-exclamation-triangle me-1"></i>Missing credentials in <code>.env</code>. Check SP_API_CLIENT_ID, SP_API_CLIENT_SECRET, SP_API_REFRESH_TOKEN.</div>';
+            }
+
+            document.getElementById('ingest-status').innerHTML =
+                '<span class="text-danger">' + esc(errMsg.substring(0, 200)) + '</span>' + hint;
+        }
+    } catch(e) {
+        timers.forEach(clearTimeout);
+        var bar = document.getElementById('ingest-bar');
+        if (bar) { bar.classList.remove('progress-bar-animated','bg-primary'); bar.classList.add('bg-danger'); bar.style.width = '100%'; }
+        document.getElementById('ingest-heading').textContent = 'Import failed';
+        document.getElementById('ingest-status').innerHTML = '<span class="text-danger">Network error: ' + esc(e.message) + '</span>';
+    }
+    btn.disabled = false;
 }
 
 document.getElementById('btn-single').addEventListener('click', singleLookup);

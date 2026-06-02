@@ -118,11 +118,30 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+@keyframes scrapeIconPulse {
+    0%,100%{transform:scale(1);opacity:1}
+    50%{transform:scale(1.12);opacity:.75}
+}
+@keyframes stepSlideIn {
+    from{opacity:0;transform:translateX(-10px)}
+    to{opacity:1;transform:translateX(0)}
+}
+@keyframes spin {
+    to{transform:rotate(360deg)}
+}
+.scraping-icon-pulse{animation:scrapeIconPulse 1.4s ease-in-out infinite;display:inline-block}
+.scrape-step{transition:opacity .3s ease}
+.spin{display:inline-block;animation:spin .8s linear infinite}
+.asin-badge-scraping{border-color:#6366f1!important;color:#6366f1!important;background:rgba(99,102,241,.07)!important}
+.asin-badge-done{border-color:#22c55e!important;color:#16a34a!important;background:rgba(34,197,94,.08)!important}
+</style>
 <script>
 var ideaId = '{{ idea_id }}';
 var DIMS = ['demand', 'saturation', 'differentiation', 'fit', 'economic_viability'];
 var DIM_LABELS = { demand:'Demand', saturation:'Saturation', differentiation:'Differentiation', fit:'Fit', economic_viability:'Economic Viability' };
-var _lastActionError = {}; // { endpoint: errorMessage } — persists inline error per tab
+var _lastActionError = {};
+var _ideaCache = null;
 
 async function loadIdea() {
     try {
@@ -134,6 +153,7 @@ async function loadIdea() {
 }
 
 function renderAll(idea) {
+    _ideaCache = idea;
     document.getElementById('hdr-keyword').textContent = idea.keyword || '—';
     document.getElementById('hdr-status').innerHTML = statusBadge(idea.status);
     document.getElementById('hdr-score').innerHTML = scoreBadge(idea.tier1_score);
@@ -223,7 +243,7 @@ function renderReviews(idea) {
         var scrapeBtn = '';
         var prereqHint = '';
         if (['shortlisted', 'pre_sourcing', 'approved'].indexOf(idea.status) >= 0) {
-            scrapeBtn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'reviews/scrape\')"><i class="bi bi-chat-left-text me-2"></i>Scrape Reviews Now</button>';
+            scrapeBtn = '<button class="btn btn-primary btn-sm mt-3" onclick="scrapeReviews()"><i class="bi bi-stars me-2"></i>Scrape Reviews Now</button>';
         } else if (idea.status === 'scored') {
             prereqHint = '<p class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i>Click <strong>Shortlist</strong> (top-right) to unlock review scraping.</p>';
         } else if (idea.status === 'dismissed') {
@@ -281,7 +301,7 @@ function renderAnalysis(idea) {
     if (!idea.tier2_done) {
         var btn = '';
         if (idea.tier1_done) {
-            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="doAction(\'analyse\')"><i class="bi bi-cpu me-2"></i>Run AI Analysis (GPT-4o)</button>';
+            btn = '<button class="btn btn-primary btn-sm mt-3" onclick="runAnalysis()"><i class="bi bi-stars me-2"></i>Run AI Analysis (GPT-4o)</button>';
         }
         el.innerHTML = '<div class="card"><div class="card-body text-center py-5">' +
             '<i class="bi bi-cpu display-4 text-muted d-block mb-3"></i>' +
@@ -406,6 +426,311 @@ function renderPresourcing(idea) {
 function specRow(label, value) {
     if (!value) return '';
     return '<div class="mb-2"><div class="text-muted" style="font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px">' + label + '</div><div>' + esc(value) + '</div></div>';
+}
+
+async function runAnalysis() {
+    var el = document.getElementById('analysis-content');
+    var keyword = (_ideaCache && _ideaCache.keyword) || 'product';
+
+    var steps = [
+        { label: 'Collecting scoring evidence & review data',     icon: 'bi-database' },
+        { label: 'Connecting to GPT-4o',                          icon: 'bi-cpu' },
+        { label: 'Synthesising Voice of Customer signals',         icon: 'bi-chat-quote' },
+        { label: 'Identifying pain points & buyer motivations',    icon: 'bi-exclamation-triangle' },
+        { label: 'Generating feature blueprint',                   icon: 'bi-layers' },
+        { label: 'Building differentiation strategy',              icon: 'bi-trophy' },
+        { label: 'Formulating Go / No-go recommendation',          icon: 'bi-signpost-split' },
+        { label: 'Saving analysis to MongoDB',                     icon: 'bi-database-check' },
+    ];
+
+    var stepsHtml = steps.map(function(s, i) {
+        return '<div class="scrape-step d-flex align-items-center gap-2 py-1 px-2 rounded" id="ai-step-'+i+'" style="opacity:.2;font-size:.85rem;transition:opacity .3s">' +
+            '<i class="'+s.icon+' text-muted me-1" id="ai-icon-'+i+'" style="width:16px;flex-shrink:0"></i>' +
+            '<span>'+esc(s.label)+'</span>' +
+        '</div>';
+    }).join('');
+
+    // Animated "thinking" dots
+    var dotHtml = '<div class="d-flex justify-content-center gap-2 mb-3" id="ai-dots">' +
+        [0,1,2,3].map(function(i){
+            return '<div style="width:10px;height:10px;border-radius:50%;background:#6366f1;animation:aiBounce 1.2s ease-in-out '+(i*0.2)+'s infinite"></div>';
+        }).join('') +
+    '</div>';
+
+    el.innerHTML =
+        '<div class="card shadow-sm border-0"><div class="card-body p-4">' +
+            '<div class="text-center mb-4">' +
+                '<div class="scraping-icon-pulse mb-2" style="color:#6366f1"><i class="bi bi-braces-asterisk" style="font-size:3rem"></i></div>' +
+                dotHtml +
+                '<h6 class="fw-bold mb-1">GPT-4o is thinking…</h6>' +
+                '<p class="text-muted small mb-0">Synthesising all evidence for <strong>' + esc(keyword) + '</strong> into market insights</p>' +
+            '</div>' +
+            '<div class="border rounded p-2 mb-4" style="background:#0f0f1a;font-family:monospace">' +
+                stepsHtml +
+            '</div>' +
+            '<div class="progress" style="height:8px;border-radius:4px">' +
+                '<div class="progress-bar progress-bar-striped progress-bar-animated" id="ai-pbar" style="width:4%;background:linear-gradient(90deg,#6366f1,#a855f7);transition:width .6s ease"></div>' +
+            '</div>' +
+            '<div class="d-flex justify-content-between mt-2">' +
+                '<small class="text-muted" id="ai-status-txt">Initializing…</small>' +
+                '<small class="text-muted" id="ai-pct">0%</small>' +
+            '</div>' +
+        '</div></div>';
+
+    // Inject bounce keyframe once
+    if (!document.getElementById('ai-bounce-css')) {
+        var st = document.createElement('style');
+        st.id = 'ai-bounce-css';
+        st.textContent = '@keyframes aiBounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-10px)}}';
+        document.head.appendChild(st);
+    }
+
+    function setProgress(pct, label) {
+        var bar = document.getElementById('ai-pbar');
+        var txt = document.getElementById('ai-status-txt');
+        var pctEl = document.getElementById('ai-pct');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = label;
+        if (pctEl) pctEl.textContent = pct + '%';
+    }
+
+    function activateStep(i) {
+        var row = document.getElementById('ai-step-'+i);
+        var icon = document.getElementById('ai-icon-'+i);
+        if (!row || !icon) return;
+        row.style.opacity = '1';
+        row.style.background = 'rgba(99,102,241,.15)';
+        row.style.color = '#a5b4fc';
+        icon.className = icon.className.replace('text-muted','') + ' text-primary spin';
+        var pct = Math.round(5 + ((i / steps.length) * 88));
+        setProgress(pct, steps[i].label + '…');
+    }
+
+    function completeStep(i) {
+        var row = document.getElementById('ai-step-'+i);
+        var icon = document.getElementById('ai-icon-'+i);
+        if (!row || !icon) return;
+        row.style.background = 'rgba(34,197,94,.08)';
+        row.style.color = '#86efac';
+        icon.className = 'bi bi-check-circle-fill text-success me-1';
+    }
+
+    // Step timing: GPT-4o calls typically take 20-60s total
+    var delays = [0, 1000, 2500, 8000, 16000, 26000, 38000, 50000];
+
+    var timers = [];
+    steps.forEach(function(s, i) {
+        var t = setTimeout(function() { activateStep(i); }, delays[i]);
+        timers.push(t);
+        if (i < steps.length - 1) {
+            var t2 = setTimeout(function() { completeStep(i); }, delays[i+1] - 400);
+            timers.push(t2);
+        }
+    });
+
+    try {
+        var r = await apiPost('/api/analyse/', { idea_id: ideaId });
+        timers.forEach(clearTimeout);
+
+        if (r.status === 'complete') {
+            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
+            var bar = document.getElementById('ai-pbar');
+            if (bar) { bar.style.width='100%'; bar.style.background='#22c55e'; bar.className='progress-bar'; }
+            setProgress(100, 'Analysis complete! Loading results…');
+            _lastActionError['analyse'] = null;
+            setTimeout(function() { loadIdea(); }, 700);
+
+        } else if (r.status === 'skipped') {
+            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
+            setProgress(100, 'Already analysed — loading results…');
+            setTimeout(function() { loadIdea(); }, 700);
+
+        } else {
+            _lastActionError['analyse'] = r.error || 'Unknown error';
+            var bar2 = document.getElementById('ai-pbar');
+            if (bar2) { bar2.style.width='100%'; bar2.style.background='#ef4444'; bar2.className='progress-bar'; }
+            setProgress(100, 'Analysis failed');
+            el.innerHTML += '<div class="alert alert-danger mt-3 small mx-2 mb-2">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i><strong>Analysis failed:</strong> ' +
+                esc((r.error || 'Unknown error').substring(0, 250)) + '</div>';
+            setTimeout(function() { loadIdea(); }, 3000);
+        }
+    } catch(e) {
+        timers.forEach(clearTimeout);
+        _lastActionError['analyse'] = e.message;
+        var bar3 = document.getElementById('ai-pbar');
+        if (bar3) { bar3.style.width='100%'; bar3.style.background='#ef4444'; bar3.className='progress-bar'; }
+        setProgress(100, 'Request failed: ' + e.message);
+        setTimeout(function() { loadIdea(); }, 3000);
+    }
+}
+
+async function scrapeReviews() {
+    var el = document.getElementById('reviews-content');
+    var asins = (_ideaCache && _ideaCache.tier1_evidence && _ideaCache.tier1_evidence.competitor_asins) || [];
+
+    // Build step list
+    var steps = [
+        { label: 'Reading competitor ASINs from scoring data', icon: 'bi-upc-scan' },
+        { label: 'Connecting to ScrapingBee proxy network', icon: 'bi-wifi' },
+    ];
+    asins.forEach(function(a, i) {
+        steps.push({ label: 'Fetching reviews for ' + a + ' (' + (i+1) + '/' + asins.length + ')', icon: 'bi-cloud-download', asin: a });
+    });
+    steps.push({ label: 'Parsing review content', icon: 'bi-braces' });
+    steps.push({ label: 'Saving to MongoDB', icon: 'bi-database-check' });
+
+    // ASIN badge HTML
+    var asinHtml = asins.map(function(a) {
+        return '<span class="badge bg-light text-dark border me-1 mb-1" id="asin-b-'+a+'" style="font-size:.8rem;transition:all .3s">' +
+            '<i class="bi bi-clock text-muted me-1" id="asin-i-'+a+'"></i>' + esc(a) + '</span>';
+    }).join('');
+
+    // Step rows HTML
+    var stepsHtml = steps.map(function(s, i) {
+        return '<div class="scrape-step d-flex align-items-center gap-2 py-1 px-2 rounded" id="rstep-'+i+'" style="opacity:.25;font-size:.85rem">' +
+            '<i class="'+s.icon+' text-muted me-1" id="rstep-icon-'+i+'" style="width:16px;flex-shrink:0"></i>' +
+            '<span id="rstep-txt-'+i+'">'+esc(s.label)+'</span>' +
+            '<span class="ms-auto badge bg-secondary d-none" id="rstep-badge-'+i+'"></span>' +
+        '</div>';
+    }).join('');
+
+    el.innerHTML =
+        '<div class="card shadow-sm border-0"><div class="card-body p-4">' +
+            // Header
+            '<div class="text-center mb-4">' +
+                '<div class="scraping-icon-pulse mb-3"><i class="bi bi-robot text-primary" style="font-size:3rem"></i></div>' +
+                '<h6 class="fw-bold mb-1">Scraping Reviews</h6>' +
+                '<p class="text-muted small mb-0">Fetching customer reviews from competitor ASINs on Amazon</p>' +
+            '</div>' +
+            // ASIN badges
+            (asins.length ? '<div class="d-flex flex-wrap justify-content-center gap-1 mb-4">'+asinHtml+'</div>' : '') +
+            // Steps
+            '<div class="border rounded p-2 mb-4 bg-light" style="font-family:monospace">'+stepsHtml+'</div>' +
+            // Progress bar
+            '<div class="progress" style="height:8px;border-radius:4px">' +
+                '<div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="scrape-pbar" style="width:4%;transition:width .6s ease"></div>' +
+            '</div>' +
+            '<div class="d-flex justify-content-between mt-2">' +
+                '<small class="text-muted" id="scrape-status-txt">Initializing…</small>' +
+                '<small class="text-muted" id="scrape-pct">0%</small>' +
+            '</div>' +
+        '</div></div>';
+
+    function setProgress(pct, label) {
+        var bar = document.getElementById('scrape-pbar');
+        var txt = document.getElementById('scrape-status-txt');
+        var pctEl = document.getElementById('scrape-pct');
+        if (bar) bar.style.width = pct + '%';
+        if (txt) txt.textContent = label;
+        if (pctEl) pctEl.textContent = pct + '%';
+    }
+
+    function activateStep(i) {
+        var row = document.getElementById('rstep-'+i);
+        var icon = document.getElementById('rstep-icon-'+i);
+        if (!row || !icon) return;
+        row.style.opacity = '1';
+        row.style.animation = 'stepSlideIn .3s ease forwards';
+        row.style.background = 'rgba(99,102,241,.06)';
+        icon.className = 'bi bi-arrow-right-circle-fill text-primary me-1 spin';
+        // ASIN badge — mark as "in progress"
+        var s = steps[i];
+        if (s && s.asin) {
+            var ab = document.getElementById('asin-b-'+s.asin);
+            var ai = document.getElementById('asin-i-'+s.asin);
+            if (ab) ab.className = 'badge border me-1 mb-1 asin-badge-scraping';
+            if (ai) { ai.className = 'bi bi-arrow-clockwise me-1 spin'; }
+        }
+        var pct = Math.round(5 + ((i / steps.length) * 85));
+        setProgress(pct, s ? s.label + '…' : '');
+    }
+
+    function completeStep(i) {
+        var row = document.getElementById('rstep-'+i);
+        var icon = document.getElementById('rstep-icon-'+i);
+        if (!row || !icon) return;
+        row.style.background = 'rgba(34,197,94,.06)';
+        icon.className = 'bi bi-check-circle-fill text-success me-1';
+        var s = steps[i];
+        if (s && s.asin) {
+            var ab = document.getElementById('asin-b-'+s.asin);
+            var ai = document.getElementById('asin-i-'+s.asin);
+            if (ab) ab.className = 'badge border me-1 mb-1 asin-badge-done';
+            if (ai) { ai.className = 'bi bi-check-circle-fill me-1'; }
+        }
+    }
+
+    function failStep(i) {
+        var icon = document.getElementById('rstep-icon-'+i);
+        if (icon) icon.className = 'bi bi-x-circle-fill text-danger me-1';
+        var s = steps[i];
+        if (s && s.asin) {
+            var ab = document.getElementById('asin-b-'+s.asin);
+            if (ab) ab.className = 'badge border border-danger text-danger me-1 mb-1';
+        }
+    }
+
+    // Schedule step animations while API runs
+    // Timing: first 2 quick, then ~10s each ASIN, then 2 final quick
+    var delays = [0, 1200];
+    var asinDelay = 9000;
+    asins.forEach(function() { delays.push(delays[delays.length-1] + asinDelay); });
+    delays.push(delays[delays.length-1] + 2000); // parse
+    delays.push(delays[delays.length-1] + 1200); // save
+
+    var timers = [];
+    steps.forEach(function(s, i) {
+        var t = setTimeout(function() { activateStep(i); }, delays[i]);
+        timers.push(t);
+        if (i < steps.length - 1) {
+            var t2 = setTimeout(function() { completeStep(i); }, delays[i+1] - 400);
+            timers.push(t2);
+        }
+    });
+
+    // Fire the real API call
+    try {
+        var r = await apiPost('/api/reviews/scrape/', { idea_id: ideaId });
+
+        // Clear pending timers — API finished
+        timers.forEach(clearTimeout);
+
+        if (r.status === 'complete') {
+            // Rapid-complete all steps
+            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
+            var bar = document.getElementById('scrape-pbar');
+            if (bar) { bar.style.width='100%'; bar.className='progress-bar bg-success'; }
+            setProgress(100, 'Complete! Loading reviews…');
+            _lastActionError['reviews/scrape'] = null;
+            setTimeout(function() { loadIdea(); }, 700);
+
+        } else if (r.status === 'skipped') {
+            steps.forEach(function(s, i) { activateStep(i); completeStep(i); });
+            setProgress(100, 'Already scraped — loading results…');
+            setTimeout(function() { loadIdea(); }, 700);
+
+        } else {
+            // error
+            _lastActionError['reviews/scrape'] = r.error || 'Unknown error';
+            var activeIdx = steps.findIndex(function(s,i){ return !document.getElementById('rstep-icon-'+i) || document.getElementById('rstep-icon-'+i).className.includes('spin'); });
+            if (activeIdx >= 0) failStep(activeIdx);
+            var bar2 = document.getElementById('scrape-pbar');
+            if (bar2) { bar2.style.width='100%'; bar2.className='progress-bar bg-danger'; }
+            setProgress(100, 'Scraping failed');
+            el.innerHTML += '<div class="alert alert-danger mt-3 small mx-2 mb-2">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i><strong>Scrape failed:</strong> ' +
+                esc((r.error || 'Unknown error').substring(0, 250)) + '</div>';
+            setTimeout(function() { loadIdea(); }, 3000);
+        }
+    } catch(e) {
+        timers.forEach(clearTimeout);
+        _lastActionError['reviews/scrape'] = e.message;
+        var bar3 = document.getElementById('scrape-pbar');
+        if (bar3) { bar3.style.width='100%'; bar3.className='progress-bar bg-danger'; }
+        setProgress(100, 'Request failed');
+        setTimeout(function() { loadIdea(); }, 3000);
+    }
 }
 
 async function doStatus(newStatus) {

@@ -16,6 +16,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'api',
+    'api.brand_analytics',
+    'api.scoring',
+    'api.llm',
+    'api.reviews',
     'frontend',
 ]
 

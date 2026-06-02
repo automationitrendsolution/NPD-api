@@ -1,0 +1,472 @@
+{% extends 'frontend/base.html' %}
+{% block title %}API Reference — NPD Pipeline{% endblock %}
+{% block page_title %}API Reference{% endblock %}
+{% block page_subtitle %}Complete endpoint reference for the NPD Pipeline REST API{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'frontend:documents' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Documents
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.doc-layout { display: flex; gap: 2rem; align-items: flex-start; }
+.doc-toc {
+    width: 210px; flex-shrink: 0;
+    position: sticky; top: 72px;
+    background: #fff; border: 1px solid var(--border);
+    border-radius: var(--r); padding: 1rem; box-shadow: var(--shadow);
+}
+.doc-toc-title { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--text-3); margin-bottom: .65rem; }
+#toc-list { list-style: none; margin: 0; padding: 0; }
+#toc-list a {
+    display: block; padding: .32rem .55rem; font-size: .78rem;
+    color: var(--text-2); text-decoration: none; border-radius: .3rem;
+    border-left: 2px solid transparent; transition: all .12s;
+}
+#toc-list a:hover { color: var(--accent); background: var(--accent-dim); }
+#toc-list a.active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); font-weight: 600; }
+.doc-body { flex: 1; min-width: 0; }
+.doc-section { margin-bottom: 2.5rem; scroll-margin-top: 80px; }
+.doc-section h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: .5rem; padding-bottom: .5rem; border-bottom: 2px solid #f1f3f5; }
+.doc-section h3 { font-size: .97rem; font-weight: 700; margin: 1.4rem 0 .4rem; color: var(--text-1); }
+.doc-section p, .doc-section li { font-size: .875rem; color: var(--text-2); line-height: 1.7; }
+.doc-section ul, .doc-section ol { padding-left: 1.4rem; }
+.doc-section li { margin-bottom: .3rem; }
+.code-block {
+    background: #1e2130; color: #e2e8f0;
+    border-radius: .45rem; padding: .9rem 1.1rem;
+    font-family: 'Fira Code', 'Consolas', monospace; font-size: .78rem;
+    line-height: 1.75; overflow-x: auto; margin: .75rem 0;
+}
+.code-block .cm { color: #6b7280; }
+.code-block .ck { color: #93c5fd; }
+.code-block .cv { color: #86efac; }
+.code-block .cs { color: #fca5a5; }
+.code-block .cn { color: #fbbf24; }
+.info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #1e40af; margin: .75rem 0; }
+.warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #92400e; margin: .75rem 0; }
+.field-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .75rem 0; }
+.field-table th { background: #fafafa; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); padding: .5rem .75rem; border-bottom: 1px solid var(--border); text-align: left; }
+.field-table td { padding: .55rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.field-table tr:last-child td { border-bottom: none; }
+.field-name { font-family: monospace; font-size: .78rem; background: #f1f5f9; padding: .1rem .35rem; border-radius: .25rem; color: #334155; white-space: nowrap; }
+.method-get    { display: inline-block; background: #dcfce7; color: #15803d; font-size: .68rem; font-weight: 800; padding: .15em .5em; border-radius: .25rem; font-family: monospace; vertical-align: middle; }
+.method-post   { display: inline-block; background: #dbeafe; color: #1d4ed8; font-size: .68rem; font-weight: 800; padding: .15em .5em; border-radius: .25rem; font-family: monospace; vertical-align: middle; }
+.method-patch  { display: inline-block; background: #fef9c3; color: #a16207; font-size: .68rem; font-weight: 800; padding: .15em .5em; border-radius: .25rem; font-family: monospace; vertical-align: middle; }
+.method-delete { display: inline-block; background: #fee2e2; color: #dc2626; font-size: .68rem; font-weight: 800; padding: .15em .5em; border-radius: .25rem; font-family: monospace; vertical-align: middle; }
+.endpoint-path { font-family: monospace; font-size: .85rem; font-weight: 600; color: var(--text-1); }
+.endpoint-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .35rem; flex-wrap: wrap; }
+.req-badge { display: inline-block; background: #fee2e2; color: #dc2626; font-size: .62rem; font-weight: 700; padding: .1em .4em; border-radius: .2rem; }
+.opt-badge { display: inline-block; background: #f3f4f6; color: #6b7280; font-size: .62rem; font-weight: 700; padding: .1em .4em; border-radius: .2rem; }
+</style>
+
+<div class="doc-layout">
+
+    <!-- TOC -->
+    <aside class="doc-toc">
+        <div class="doc-toc-title">Contents</div>
+        <ul id="toc-list">
+            <li><a href="#auth">1 Auth &amp; Base URL</a></li>
+            <li><a href="#ideas">2 Ideas API</a></li>
+            <li><a href="#scoring">3 Scoring API</a></li>
+            <li><a href="#amazon">4 Amazon Search API</a></li>
+            <li><a href="#ba">5 Brand Analytics API</a></li>
+            <li><a href="#llm">6 LLM Analysis API</a></li>
+            <li><a href="#reviews">7 Reviews API</a></li>
+            <li><a href="#system">8 System API</a></li>
+            <li><a href="#errors">9 Errors &amp; Status Codes</a></li>
+        </ul>
+    </aside>
+
+    <!-- Body -->
+    <div class="doc-body">
+
+        <!-- 1 Auth & Base URL -->
+        <section class="doc-section" id="auth">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">1</span>Authentication &amp; Base URL</h2>
+            <p>All API endpoints are served under the <code>/api/</code> prefix on the same host as the UI.</p>
+            <div class="code-block"><span class="cv">Base URL:</span>  http://localhost:8000/api/</div>
+            <h3>CSRF Protection</h3>
+            <p>All state-mutating requests (<span class="method-post">POST</span> <span class="method-patch">PATCH</span> <span class="method-delete">DELETE</span>) require a valid CSRF token. The token is embedded in every HTML page:</p>
+            <div class="code-block"><span class="cm">&lt;!-- In the page head --&gt;</span>
+&lt;<span class="ck">meta</span> name=<span class="cs">"csrf-token"</span> content=<span class="cs">"{{ csrf_token }}"</span>&gt;
+
+<span class="cm">// In JavaScript</span>
+const CSRF = document.querySelector(<span class="cs">'meta[name="csrf-token"]'</span>)?.content;
+
+fetch(<span class="cs">'/api/score/'</span>, {
+    method: <span class="cs">'POST'</span>,
+    headers: {
+        <span class="cs">'Content-Type'</span>: <span class="cs">'application/json'</span>,
+        <span class="cs">'X-CSRFToken'</span>: CSRF
+    },
+    body: JSON.stringify({ keyword: <span class="cs">'bamboo mug'</span> })
+});
+</div>
+            <p><span class="method-get">GET</span> requests do not require CSRF.</p>
+        </section>
+
+        <!-- 2 Ideas API -->
+        <section class="doc-section" id="ideas">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">2</span>Ideas API</h2>
+            <p>CRUD operations on the MongoDB ideas collection — the central data store of the pipeline.</p>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/ideas/</span> — List ideas</h3>
+            <p>Returns all ideas. Supports optional query filters:</p>
+            <table class="field-table">
+                <thead><tr><th>Param</th><th>Type</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="field-name">status</span> <span class="opt-badge">optional</span></td><td>string</td><td><code>new</code> / <code>scored</code> / <code>shortlisted</code> / <code>pre_sourcing</code> / <code>approved</code> / <code>dismissed</code></td></tr>
+                    <tr><td><span class="field-name">source</span> <span class="opt-badge">optional</span></td><td>string</td><td><code>human_seeded</code> / <code>autonomous</code> / <code>adjacency_mining</code></td></tr>
+                    <tr><td><span class="field-name">min_score</span> <span class="opt-badge">optional</span></td><td>float</td><td>Only return ideas with <code>tier1_score ≥ min_score</code></td></tr>
+                </tbody>
+            </table>
+            <div class="code-block"><span class="cm">// All ideas</span>
+<span class="ck">GET</span> /api/ideas/
+
+<span class="cm">// Scored ideas only</span>
+<span class="ck">GET</span> /api/ideas/?status=scored
+
+<span class="cm">// Ideas with score ≥ 55</span>
+<span class="ck">GET</span> /api/ideas/?min_score=55
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"count"</span>: 42,
+  <span class="cv">"ideas"</span>: [ { <span class="cs">"idea_id"</span>: <span class="cs">"uuid..."</span>, <span class="cs">"keyword"</span>: <span class="cs">"bamboo mug"</span>, ... } ]
+}
+</div>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/ideas/&lt;idea_id&gt;/</span> — Get one idea</h3>
+            <div class="code-block"><span class="ck">GET</span> /api/ideas/3f2a1b-uuid-here/
+
+<span class="cm">// Returns the full idea document</span>
+{
+  <span class="cv">"idea_id"</span>:      <span class="cs">"3f2a1b-..."</span>,
+  <span class="cv">"keyword"</span>:      <span class="cs">"bamboo travel mug"</span>,
+  <span class="cv">"status"</span>:       <span class="cs">"scored"</span>,
+  <span class="cv">"tier1_score"</span>:  74,
+  <span class="cv">"tier1_scores"</span>: { <span class="cs">"demand"</span>: 80, <span class="cs">"saturation"</span>: 65, ... },
+  <span class="cv">"flags"</span>:         [<span class="cs">"strong_demand"</span>],
+  <span class="cv">"created_at"</span>:   <span class="cs">"2026-05-01T12:00:00Z"</span>,
+  <span class="cv">"updated_at"</span>:   <span class="cs">"2026-05-01T12:04:31Z"</span>
+}
+</div>
+
+            <h3><span class="method-patch">PATCH</span> <span class="endpoint-path">/api/ideas/&lt;idea_id&gt;/update/</span> — Update an idea</h3>
+            <p>Update any field on an existing idea. Commonly used to change status (pipeline stage transitions).</p>
+            <div class="code-block"><span class="ck">PATCH</span> /api/ideas/3f2a1b-uuid/update/
+
+{
+  <span class="cv">"status"</span>: <span class="cs">"shortlisted"</span>
+}
+</div>
+
+            <h3><span class="method-delete">DELETE</span> <span class="endpoint-path">/api/ideas/&lt;idea_id&gt;/delete/</span> — Delete an idea</h3>
+            <div class="code-block"><span class="ck">DELETE</span> /api/ideas/3f2a1b-uuid/delete/
+
+<span class="cm">// Returns 204 No Content on success</span>
+</div>
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>Deletion is permanent. The idea document and all scoring evidence are removed from MongoDB. Prefer setting <code>status = "dismissed"</code> to keep the record for the cooldown system.</div>
+        </section>
+
+        <!-- 3 Scoring API -->
+        <section class="doc-section" id="scoring">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">3</span>Scoring API</h2>
+
+            <h3><span class="method-post">POST</span> <span class="endpoint-path">/api/score/</span> — Run Tier 1 scoring</h3>
+            <p>Runs the full 12-step deterministic scoring pipeline for a keyword. This is the core action of the product.</p>
+            <div class="code-block"><span class="ck">POST</span> /api/score/
+
+{
+  <span class="cv">"keyword"</span>:       <span class="cs">"bamboo travel mug"</span>,  <span class="req-badge">required</span>
+  <span class="cv">"concept"</span>:       <span class="cs">"eco-friendly mug"</span>,   <span class="opt-badge">optional</span>
+  <span class="cv">"source"</span>:        <span class="cs">"human_seeded"</span>,       <span class="opt-badge">optional</span>
+  <span class="cv">"force_rescore"</span>: <span class="cv">false</span>                  <span class="opt-badge">optional</span>
+}
+</div>
+            <p><strong>Response:</strong></p>
+            <div class="code-block">{
+  <span class="cv">"status"</span>:          <span class="cs">"scored"</span>,       <span class="cm">// scored | dismissed | skipped | error</span>
+  <span class="cv">"idea_id"</span>:         <span class="cs">"uuid..."</span>,
+  <span class="cv">"keyword"</span>:         <span class="cs">"bamboo travel mug"</span>,
+  <span class="cv">"tier1_score"</span>:     <span class="cv">74</span>,
+  <span class="cv">"tier1_scores"</span>: {
+    <span class="cv">"demand"</span>:              <span class="cv">80</span>,
+    <span class="cv">"saturation"</span>:          <span class="cv">65</span>,
+    <span class="cv">"differentiation"</span>:     <span class="cv">70</span>,
+    <span class="cv">"fit"</span>:                 <span class="cv">100</span>,
+    <span class="cv">"economic_viability"</span>:  <span class="cv">60</span>
+  },
+  <span class="cv">"flags"</span>:             [<span class="cs">"strong_demand"</span>],
+  <span class="cv">"eligible_for_tier15"</span>: <span class="cv">true</span>,
+  <span class="cv">"duration_seconds"</span>:  <span class="cv">12.4</span>
+}
+</div>
+            <table class="field-table">
+                <thead><tr><th>source value</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="field-name">human_seeded</span></td><td>Idea originated from a human (default)</td></tr>
+                    <tr><td><span class="field-name">autonomous</span></td><td>Idea discovered by the autonomous mining agent</td></tr>
+                    <tr><td><span class="field-name">adjacency_mining</span></td><td>Idea discovered via keyword adjacency expansion</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 4 Amazon Search API -->
+        <section class="doc-section" id="amazon">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">4</span>Amazon Search API</h2>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/amazon-search/</span> — SERP scrape</h3>
+            <div class="code-block"><span class="ck">GET</span> /api/amazon-search/?keyword=bamboo+travel+mug&amp;page=1
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"keyword"</span>:       <span class="cs">"bamboo travel mug"</span>,
+  <span class="cv">"page"</span>:          <span class="cv">1</span>,
+  <span class="cv">"product_count"</span>: <span class="cv">20</span>,
+  <span class="cv">"products"</span>: [
+    {
+      <span class="cv">"asin"</span>:         <span class="cs">"B08XYZ123"</span>,
+      <span class="cv">"title"</span>:        <span class="cs">"Bamboo Travel Mug 16oz..."</span>,
+      <span class="cv">"price"</span>:        <span class="cv">24.99</span>,
+      <span class="cv">"rating"</span>:       <span class="cv">4.4</span>,
+      <span class="cv">"review_count"</span>: <span class="cv">1240</span>,
+      <span class="cv">"bsr"</span>:          <span class="cv">3200</span>,
+      <span class="cv">"is_sponsored"</span>: <span class="cv">false</span>
+    }
+  ]
+}
+</div>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/amazon-product/</span> — Product detail scrape</h3>
+            <div class="code-block"><span class="ck">GET</span> /api/amazon-product/?asin=B08XYZ123
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"asin"</span>: <span class="cs">"B08XYZ123"</span>,
+  <span class="cv">"product"</span>: {
+    <span class="cv">"title"</span>:         <span class="cs">"Bamboo Travel Mug..."</span>,
+    <span class="cv">"price"</span>:         <span class="cv">24.99</span>,
+    <span class="cv">"rating"</span>:        <span class="cv">4.4</span>,
+    <span class="cv">"review_count"</span>:  <span class="cv">1240</span>,
+    <span class="cv">"bullet_points"</span>: [<span class="cs">"BPA-free bamboo..."</span>, <span class="cs">"Keeps drinks hot 8h"</span>],
+    <span class="cv">"category_path"</span>: <span class="cs">"Home &amp; Kitchen &gt; Travel Mugs"</span>,
+    <span class="cv">"image_count"</span>:   <span class="cv">7</span>,
+    <span class="cv">"has_video"</span>:     <span class="cv">true</span>
+  }
+}
+</div>
+        </section>
+
+        <!-- 5 Brand Analytics API -->
+        <section class="doc-section" id="ba">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">5</span>Brand Analytics API</h2>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/brand-analytics/lookup/</span> — Single lookup</h3>
+            <div class="code-block"><span class="ck">GET</span> /api/brand-analytics/lookup/?keyword=bamboo+travel+mug
+
+{
+  <span class="cv">"keyword"</span>: <span class="cs">"bamboo travel mug"</span>,
+  <span class="cv">"found"</span>:   <span class="cv">true</span>,
+  <span class="cv">"data"</span>: {
+    <span class="cv">"search_frequency_rank"</span>: <span class="cv">4521</span>,
+    <span class="cv">"report_period"</span>:        <span class="cs">"2026-05"</span>,
+    <span class="cv">"clicked_asin_1"</span>:       <span class="cs">"B08XYZ123"</span>,
+    <span class="cv">"click_share_1"</span>:        <span class="cv">0.32</span>,
+    <span class="cv">"conversion_share_1"</span>:   <span class="cv">0.28</span>
+  }
+}
+</div>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/brand-analytics/lookup-batch/</span> — Batch lookup</h3>
+            <div class="code-block"><span class="ck">GET</span> /api/brand-analytics/lookup-batch/?keywords=bamboo+mug,travel+cup,eco+bottle
+
+{
+  <span class="cv">"queried"</span>: <span class="cv">3</span>,
+  <span class="cv">"found"</span>:   <span class="cv">2</span>,
+  <span class="cv">"results"</span>: {
+    <span class="cv">"bamboo mug"</span>:  { <span class="cs">/* BA data */</span> },
+    <span class="cv">"travel cup"</span>:  { <span class="cs">/* BA data */</span> },
+    <span class="cv">"eco bottle"</span>:  <span class="cv">null</span>  <span class="cm">// not found</span>
+  }
+}
+</div>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/brand-analytics/status/</span> — Database status</h3>
+            <div class="code-block">{
+  <span class="cv">"total_terms"</span>:  <span class="cv">587432</span>,
+  <span class="cv">"report_dates"</span>: [<span class="cs">"2026-05"</span>, <span class="cs">"2026-04"</span>],
+  <span class="cv">"last_ingestion"</span>: {
+    <span class="cv">"status"</span>:        <span class="cs">"success"</span>,
+    <span class="cv">"rows_inserted"</span>: <span class="cv">587432</span>,
+    <span class="cv">"completed_at"</span>:  <span class="cs">"2026-05-15T09:31:00Z"</span>
+  }
+}
+</div>
+
+            <h3><span class="method-post">POST</span> <span class="endpoint-path">/api/brand-analytics/ingest/</span> — Trigger ingestion</h3>
+            <div class="code-block"><span class="ck">POST</span> /api/brand-analytics/ingest/
+
+{
+  <span class="cv">"start_date"</span>:    <span class="cs">"2026-05-01"</span>,  <span class="opt-badge">optional</span>
+  <span class="cv">"end_date"</span>:      <span class="cs">"2026-05-31"</span>,  <span class="opt-badge">optional</span>
+  <span class="cv">"report_period"</span>: <span class="cs">"MONTH"</span>        <span class="opt-badge">MONTH | WEEK | DAY</span>
+}
+</div>
+        </section>
+
+        <!-- 6 LLM Analysis API -->
+        <section class="doc-section" id="llm">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">6</span>LLM Analysis API</h2>
+
+            <h3><span class="method-post">POST</span> <span class="endpoint-path">/api/analyse/</span> — Tier 2C LLM synthesis</h3>
+            <p>Sends all collected evidence (SERP, products, reviews, BA data) to GPT-4o for a structured synthesis report.</p>
+            <div class="code-block"><span class="ck">POST</span> /api/analyse/
+
+{ <span class="cv">"idea_id"</span>: <span class="cs">"uuid..."</span>, <span class="cv">"force"</span>: <span class="cv">false</span> }
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"status"</span>:   <span class="cs">"complete"</span>,
+  <span class="cv">"idea_id"</span>:  <span class="cs">"uuid..."</span>,
+  <span class="cv">"keyword"</span>:  <span class="cs">"bamboo travel mug"</span>,
+  <span class="cv">"analysis"</span>: {
+    <span class="cv">"opportunity_summary"</span>:   <span class="cs">"Strong demand in eco kitchenware..."</span>,
+    <span class="cv">"key_differentiators"</span>:   [<span class="cs">"compostable packaging"</span>, <span class="cs">"lifetime warranty"</span>],
+    <span class="cv">"main_risks"</span>:            [<span class="cs">"high saturation from established brands"</span>],
+    <span class="cv">"review_sentiment"</span>:       <span class="cs">"positive — customers love portability"</span>,
+    <span class="cv">"recommended_next_step"</span>:  <span class="cs">"proceed to pre-sourcing"</span>
+  },
+  <span class="cv">"duration_seconds"</span>: <span class="cv">18.3</span>
+}
+</div>
+            <div class="info-box"><i class="bi bi-info-circle-fill me-2"></i>Requires <code>status = "shortlisted"</code> and completed review scraping (<code>reviews_scraped = true</code>). Uses OpenAI GPT-4o — requires <code>OPENAI_API_KEY</code> in <code>.env</code>.</div>
+
+            <h3><span class="method-post">POST</span> <span class="endpoint-path">/api/presource/</span> — Tier 3 pre-sourcing document</h3>
+            <p>Generates a full pre-sourcing document: product concept, Amazon listing draft, and manufacturer spec.</p>
+            <div class="code-block"><span class="ck">POST</span> /api/presource/
+
+{ <span class="cv">"idea_id"</span>: <span class="cs">"uuid..."</span>, <span class="cv">"force"</span>: <span class="cv">false</span> }
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"status"</span>: <span class="cs">"complete"</span>,
+  <span class="cv">"presourcing_data"</span>: {
+    <span class="cv">"product_concept"</span>:          <span class="cs">"A 16oz bamboo-fibre..."</span>,
+    <span class="cv">"listing_title"</span>:            <span class="cs">"Bamboo Travel Mug 16oz..."</span>,
+    <span class="cv">"bullet_points"</span>:            [<span class="cs">"..."</span>, <span class="cs">"..."</span>],
+    <span class="cv">"materials_spec"</span>:           <span class="cs">"70% bamboo fibre, 30% PP..."</span>,
+    <span class="cv">"supplier_search_terms"</span>:    [<span class="cs">"bamboo fiber travel mug manufacturer"</span>],
+    <span class="cv">"lead_time_assumptions"</span>:    <span class="cs">"45–60 days from order..."</span>
+  },
+  <span class="cv">"duration_seconds"</span>: <span class="cv">28.1</span>
+}
+</div>
+        </section>
+
+        <!-- 7 Reviews API -->
+        <section class="doc-section" id="reviews">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">7</span>Reviews API</h2>
+
+            <h3><span class="method-post">POST</span> <span class="endpoint-path">/api/reviews/scrape/</span> — Tier 2A review scraping</h3>
+            <div class="code-block"><span class="ck">POST</span> /api/reviews/scrape/
+
+{
+  <span class="cv">"idea_id"</span>:   <span class="cs">"uuid..."</span>,  <span class="req-badge">required</span>
+  <span class="cv">"max_asins"</span>: <span class="cv">3</span>,          <span class="opt-badge">1–5, default 3</span>
+  <span class="cv">"max_pages"</span>: <span class="cv">3</span>,          <span class="opt-badge">1–10, default 3</span>
+  <span class="cv">"force"</span>:     <span class="cv">false</span>       <span class="opt-badge">re-scrape if already done</span>
+}
+
+<span class="cm">// Response</span>
+{
+  <span class="cv">"status"</span>:           <span class="cs">"complete"</span>,
+  <span class="cv">"idea_id"</span>:          <span class="cs">"uuid..."</span>,
+  <span class="cv">"asins_scraped"</span>:    <span class="cv">3</span>,
+  <span class="cv">"total_reviews"</span>:    <span class="cv">187</span>,
+  <span class="cv">"duration_seconds"</span>: <span class="cv">38.2</span>,
+  <span class="cv">"warnings"</span>:         []
+}
+</div>
+        </section>
+
+        <!-- 8 System API -->
+        <section class="doc-section" id="system">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">8</span>System API</h2>
+
+            <h3><span class="method-get">GET</span> <span class="endpoint-path">/api/db-status/</span> — MongoDB health check</h3>
+            <p>Used by the sidebar to display the live database status indicator. Returns MongoDB connectivity and idea count.</p>
+            <div class="code-block"><span class="ck">GET</span> /api/db-status/
+
+<span class="cm">// Connected</span>
+{
+  <span class="cv">"connected"</span>:   <span class="cv">true</span>,
+  <span class="cv">"db_name"</span>:     <span class="cs">"npd_db"</span>,
+  <span class="cv">"host"</span>:        <span class="cs">"localhost:27017"</span>,
+  <span class="cv">"ideas_count"</span>: <span class="cv">42</span>
+}
+
+<span class="cm">// Disconnected</span>
+{
+  <span class="cv">"connected"</span>: <span class="cv">false</span>,
+  <span class="cv">"error"</span>:     <span class="cs">"Connection refused"</span>
+}
+</div>
+        </section>
+
+        <!-- 9 Errors -->
+        <section class="doc-section" id="errors">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">9</span>Errors &amp; Status Codes</h2>
+            <table class="field-table">
+                <thead><tr><th>HTTP Code</th><th>Meaning</th><th>Common cause</th></tr></thead>
+                <tbody>
+                    <tr><td><code>200</code></td><td>OK</td><td>Request succeeded</td></tr>
+                    <tr><td><code>400</code></td><td>Bad Request</td><td>Missing required field, invalid value, or validation failure</td></tr>
+                    <tr><td><code>403</code></td><td>Forbidden</td><td>Missing or invalid CSRF token on POST/PATCH/DELETE</td></tr>
+                    <tr><td><code>404</code></td><td>Not Found</td><td>idea_id does not exist in the store</td></tr>
+                    <tr><td><code>500</code></td><td>Server Error</td><td>Scraper timeout, MongoDB unreachable, or unhandled exception</td></tr>
+                    <tr><td><code>502</code></td><td>Bad Gateway</td><td>SP-API or OpenAI API returned an error during ingestion / LLM call</td></tr>
+                </tbody>
+            </table>
+            <h3>Error response format</h3>
+            <p>All error responses return a JSON body with an <code>error</code> key:</p>
+            <div class="code-block">{
+  <span class="cv">"error"</span>: <span class="cs">"'keyword' is required"</span>
+}</div>
+            <h3>Scraping errors</h3>
+            <p>If a scraping request times out or Amazon returns an unexpected page structure, the API returns a <code>500</code> with the raw error message. Common causes:</p>
+            <ul>
+                <li>ScrapingBee quota exhausted — check your dashboard</li>
+                <li>Amazon blocked the request — retry with a different keyword</li>
+                <li>HTML parser selector change — update <code>api/search/parser.py</code> or <code>api/product/parser.py</code></li>
+            </ul>
+        </section>
+
+    </div><!-- /doc-body -->
+</div><!-- /doc-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+var sections = document.querySelectorAll('.doc-section[id]');
+var tocLinks = document.querySelectorAll('#toc-list a');
+function updateToc() {
+    var atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 80);
+    var current = '';
+    if (atBottom) {
+        current = sections[sections.length - 1].getAttribute('id');
+    } else {
+        var scrollY = window.scrollY + Math.floor(window.innerHeight * 0.60);
+        sections.forEach(function(sec) { if (sec.offsetTop <= scrollY) current = sec.getAttribute('id'); });
+    }
+    tocLinks.forEach(function(link) {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+}
+window.addEventListener('scroll', updateToc, { passive: true });
+updateToc();
+</script>
+{% endblock %}

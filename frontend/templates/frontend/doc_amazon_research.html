@@ -1,0 +1,303 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Amazon Research Guide — NPD Pipeline{% endblock %}
+{% block page_title %}Amazon Research{% endblock %}
+{% block page_subtitle %}Competitor product search &amp; review scraping{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'frontend:documents' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Documents
+</a>
+<a href="{% url 'frontend:research' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-shop me-1"></i>Open Tool
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.doc-layout { display: flex; gap: 2rem; align-items: flex-start; }
+.doc-toc {
+    width: 210px; flex-shrink: 0;
+    position: sticky; top: 72px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 1rem;
+    box-shadow: var(--shadow);
+}
+.doc-toc-title { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--text-3); margin-bottom: .65rem; }
+#toc-list { list-style: none; margin: 0; padding: 0; }
+#toc-list a {
+    display: block; padding: .32rem .55rem; font-size: .78rem;
+    color: var(--text-2); text-decoration: none; border-radius: .3rem;
+    border-left: 2px solid transparent; transition: all .12s;
+}
+#toc-list a:hover { color: var(--accent); background: var(--accent-dim); }
+#toc-list a.active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); font-weight: 600; }
+.doc-body { flex: 1; min-width: 0; }
+.doc-section { margin-bottom: 2.5rem; scroll-margin-top: 80px; }
+.doc-section h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: .5rem; padding-bottom: .5rem; border-bottom: 2px solid #f1f3f5; }
+.doc-section h3 { font-size: .97rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--text-1); }
+.doc-section p, .doc-section li { font-size: .875rem; color: var(--text-2); line-height: 1.7; }
+.doc-section ul, .doc-section ol { padding-left: 1.4rem; }
+.doc-section li { margin-bottom: .3rem; }
+.code-block {
+    background: #1e2130; color: #e2e8f0;
+    border-radius: .45rem; padding: .9rem 1.1rem;
+    font-family: 'Fira Code', 'Consolas', monospace; font-size: .78rem;
+    line-height: 1.75; overflow-x: auto; margin: .75rem 0;
+}
+.code-block .cm { color: #6b7280; }
+.code-block .ck { color: #93c5fd; }
+.code-block .cv { color: #86efac; }
+.code-block .cs { color: #fca5a5; }
+.info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #1e40af; margin: .75rem 0; }
+.warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #92400e; margin: .75rem 0; }
+.tip-box  { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #166534; margin: .75rem 0; }
+.field-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .75rem 0; }
+.field-table th { background: #fafafa; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); padding: .5rem .75rem; border-bottom: 1px solid var(--border); text-align: left; }
+.field-table td { padding: .55rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.field-table tr:last-child td { border-bottom: none; }
+.field-name { font-family: monospace; font-size: .78rem; background: #f1f5f9; padding: .1rem .35rem; border-radius: .25rem; color: #334155; white-space: nowrap; }
+.step-row { display: flex; gap: .85rem; margin-bottom: 1rem; }
+.step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: .72rem; font-weight: 800; flex-shrink: 0; margin-top: .1rem; }
+.step-content { flex: 1; }
+.step-content strong { font-size: .875rem; display: block; margin-bottom: .15rem; }
+</style>
+
+<div class="doc-layout">
+
+    <!-- TOC -->
+    <aside class="doc-toc">
+        <div class="doc-toc-title">Contents</div>
+        <ul id="toc-list">
+            <li><a href="#overview">1 Overview</a></li>
+            <li><a href="#how-to-search">2 How to Search</a></li>
+            <li><a href="#search-results">3 Search Results</a></li>
+            <li><a href="#product-detail">4 Product Detail</a></li>
+            <li><a href="#review-scraping">5 Review Scraping</a></li>
+            <li><a href="#pipeline-use">6 Pipeline Integration</a></li>
+            <li><a href="#tips">7 Tips &amp; Limits</a></li>
+        </ul>
+    </aside>
+
+    <!-- Body -->
+    <div class="doc-body">
+
+        <!-- 1 Overview -->
+        <section class="doc-section" id="overview">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">1</span>Overview</h2>
+            <p>The <strong>Amazon Research</strong> tool lets you search Amazon product listings and scrape detailed product data and customer reviews directly from the NPD Pipeline UI. It powers the competitor analysis that feeds the Tier 1 scoring pipeline — specifically the <em>Saturation</em>, <em>Differentiation</em>, and <em>Economic Viability</em> sub-scorers.</p>
+            <div class="info-box"><i class="bi bi-info-circle-fill me-2"></i><strong>What it does:</strong> Sends a real search query to Amazon, parses the SERP (Search Engine Results Page), and returns up to 20 product cards per page. You can then drill into any ASIN for full product detail.</div>
+            <div class="row g-3 mt-1">
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-search text-primary d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">SERP Scraping</div>
+                        <div class="text-muted" style="font-size:.75rem">Up to 20 products per page, multiple pages supported</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-box-seam text-success d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">Product Detail</div>
+                        <div class="text-muted" style="font-size:.75rem">Price, BSR, ratings, reviews, bullet points, images</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-chat-left-text text-warning d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">Review Scraping</div>
+                        <div class="text-muted" style="font-size:.75rem">Customer reviews per ASIN for sentiment analysis</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2 How to Search -->
+        <section class="doc-section" id="how-to-search">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">2</span>How to Search</h2>
+            <p>Navigate to <strong>Tools → Amazon Research</strong> in the sidebar, or use the Quick Action on the Dashboard.</p>
+            <div class="step-row">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <strong>Enter a keyword</strong>
+                    Type the exact search term you want to research (e.g. <em>"bamboo travel mug"</em>). Use the same keyword you plan to score in Tier 1 for the most relevant competitor data.
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <strong>Choose a page</strong>
+                    Page 1 shows the top ~20 organic results — the most relevant competitors. Page 2+ shows lower-ranked products. For Tier 1 analysis, always start with page 1.
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <strong>Click Search</strong>
+                    Results load within 3–8 seconds. Each scraping request costs <strong>1 credit</strong> from your ScrapingBee quota.
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-num">4</div>
+                <div class="step-content">
+                    <strong>Drill into a product</strong>
+                    Click any product card to fetch full detail (price history, BSR, all bullet points, image count). This costs <strong>1 additional credit</strong>.
+                </div>
+            </div>
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>Each search and each product detail request uses 1 ScrapingBee credit. A typical research session (1 SERP + 3 products) costs 4 credits. Monitor your quota in the ScrapingBee dashboard.</div>
+        </section>
+
+        <!-- 3 Search Results -->
+        <section class="doc-section" id="search-results">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">3</span>Understanding Search Results</h2>
+            <p>Each product card on the SERP contains the following parsed fields:</p>
+            <table class="field-table">
+                <thead><tr><th>Field</th><th>Description</th><th>Use in Scoring</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="field-name">asin</span></td><td>Amazon Standard Identification Number — unique product ID</td><td>Used to fetch product detail pages</td></tr>
+                    <tr><td><span class="field-name">title</span></td><td>Full product listing title as shown on Amazon</td><td>Differentiation scorer checks title uniqueness</td></tr>
+                    <tr><td><span class="field-name">price</span></td><td>Current listed price (USD)</td><td>Economics scorer — must be ≥ $15 to pass price floor</td></tr>
+                    <tr><td><span class="field-name">rating</span></td><td>Star rating (1.0–5.0)</td><td>Saturation scorer — high ratings = strong competition</td></tr>
+                    <tr><td><span class="field-name">review_count</span></td><td>Number of customer reviews</td><td>Saturation scorer — &gt;500 reviews = high barrier to entry</td></tr>
+                    <tr><td><span class="field-name">bsr</span></td><td>Best Seller Rank in primary category</td><td>Demand scorer — low BSR = high sales velocity</td></tr>
+                    <tr><td><span class="field-name">is_amazon_choice</span></td><td>Whether the product has Amazon's Choice badge</td><td>Differentiation signal</td></tr>
+                    <tr><td><span class="field-name">is_sponsored</span></td><td>Whether the listing is a paid ad</td><td>Indicates competitive PPC market</td></tr>
+                    <tr><td><span class="field-name">image_url</span></td><td>Primary product image URL</td><td>Display only</td></tr>
+                </tbody>
+            </table>
+            <div class="tip-box"><i class="bi bi-lightbulb-fill me-2"></i><strong>Tip:</strong> The first 3–5 organic (non-sponsored) results are the most important. A SERP where all top spots are dominated by brands with 1,000+ reviews and 4.5+ ratings indicates a <strong>high-saturation market</strong> — expect a lower saturation score.</div>
+        </section>
+
+        <!-- 4 Product Detail -->
+        <section class="doc-section" id="product-detail">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">4</span>Product Detail Page</h2>
+            <p>Clicking a product fetches its individual listing page. Additional fields returned:</p>
+            <table class="field-table">
+                <thead><tr><th>Field</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="field-name">bullet_points</span></td><td>The 5 feature bullet points from the listing (array of strings)</td></tr>
+                    <tr><td><span class="field-name">description</span></td><td>Full product description text</td></tr>
+                    <tr><td><span class="field-name">category_path</span></td><td>Full Amazon category breadcrumb (e.g. Home &amp; Kitchen &gt; Travel Mugs)</td></tr>
+                    <tr><td><span class="field-name">monthly_sales_est</span></td><td>Estimated monthly unit sales (derived from BSR using published models)</td></tr>
+                    <tr><td><span class="field-name">image_count</span></td><td>Number of product images — proxy for listing quality</td></tr>
+                    <tr><td><span class="field-name">has_video</span></td><td>Whether the listing includes a product video</td></tr>
+                    <tr><td><span class="field-name">qa_count</span></td><td>Number of answered Q&amp;As — indicates active community</td></tr>
+                    <tr><td><span class="field-name">variations</span></td><td>Colour/size variants available (affects review splitting)</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 5 Review Scraping -->
+        <section class="doc-section" id="review-scraping">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">5</span>Review Scraping (Tier 2A)</h2>
+            <p>Once an idea has been <strong>shortlisted</strong> (manually promoted on the Task Board), you can trigger full customer review scraping via the API or the Idea Detail page. This is Tier 2A of the pipeline.</p>
+            <h3>What it scrapes</h3>
+            <ul>
+                <li>Up to <strong>3 competitor ASINs</strong> (configurable, max 5)</li>
+                <li>Up to <strong>3 pages of reviews per ASIN</strong> (configurable, max 10)</li>
+                <li>Each review: <em>title, body, rating, date, verified purchase, helpful votes</em></li>
+            </ul>
+            <h3>Triggering a scrape</h3>
+            <p>Via the API (POST to <code>/api/reviews/scrape/</code>):</p>
+            <div class="code-block"><span class="ck">POST</span> /api/reviews/scrape/
+
+{
+  <span class="cv">"idea_id"</span>:   <span class="cs">"uuid-..."</span>,
+  <span class="cv">"max_asins"</span>: <span class="cv">3</span>,
+  <span class="cv">"max_pages"</span>: <span class="cv">3</span>,
+  <span class="cv">"force"</span>:     <span class="cv">false</span>
+}
+</div>
+            <div class="info-box"><i class="bi bi-info-circle-fill me-2"></i>The idea must have <code>status = "shortlisted"</code> and must have completed Tier 1 scoring (so competitor ASINs are available in <code>tier1_evidence</code>). The scrape costs up to <strong>9 credits</strong> (3 ASINs × 3 pages).</div>
+            <h3>Where reviews are stored</h3>
+            <p>Reviews are stored in the idea document under <code>reviews_data</code> and the flag <code>reviews_scraped: true</code> is set. The LLM Tier 2C analysis reads these reviews to generate its synthesis.</p>
+        </section>
+
+        <!-- 6 Pipeline Integration -->
+        <section class="doc-section" id="pipeline-use">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">6</span>Pipeline Integration</h2>
+            <p>The Amazon Research tool is used at two distinct points in the pipeline:</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card p-3 h-100" style="border-left: 3px solid #6366f1">
+                        <div class="fw-bold mb-1" style="font-size:.875rem"><i class="bi bi-stars text-primary me-2"></i>Tier 1 — Auto (during scoring)</div>
+                        <p class="text-muted mb-0" style="font-size:.78rem">When you click <em>Run Tier 1 Scoring</em>, the scorer automatically fetches the SERP and top product pages. You do not need to run a manual research first.</p>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card p-3 h-100" style="border-left: 3px solid #f59e0b">
+                        <div class="fw-bold mb-1" style="font-size:.875rem"><i class="bi bi-chat-left-text text-warning me-2"></i>Tier 2A — Manual (after shortlisting)</div>
+                        <p class="text-muted mb-0" style="font-size:.78rem">After an idea is promoted to <em>Shortlisted</em> on the Task Board, you manually trigger review scraping from the Idea Detail page or via the API.</p>
+                    </div>
+                </div>
+            </div>
+            <h3>Data flow diagram</h3>
+            <div class="code-block"><span class="cm">Keyword input</span>
+    ↓
+<span class="ck">Amazon SERP scrape</span>     → top 20 products, prices, ratings, BSRs
+    ↓
+<span class="ck">Product detail scrape</span>  → bullet points, category, monthly_sales_est
+    ↓
+<span class="cv">Tier 1 sub-scorers</span>     → demand / saturation / differentiation / economics
+    ↓
+<span class="cm">Idea shortlisted by human</span>
+    ↓
+<span class="ck">Review scraping (2A)</span>   → 3 ASINs × 3 pages of customer reviews
+    ↓
+<span class="cv">LLM analysis (2C)</span>      → GPT-4o synthesis of all evidence
+    ↓
+<span class="cv">Pre-sourcing doc (3)</span>   → product spec, listing draft, sourcing brief
+</div>
+        </section>
+
+        <!-- 7 Tips & Limits -->
+        <section class="doc-section" id="tips">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">7</span>Tips &amp; Limits</h2>
+            <h3>Best practices</h3>
+            <ul>
+                <li>Research the exact keyword you plan to score — Amazon's SERP varies significantly between <em>"bamboo mug"</em> and <em>"bamboo travel mug"</em>.</li>
+                <li>Page 1 is the gold standard. If page 1 is dominated by brand-name products with thousands of reviews, it is a high-saturation niche.</li>
+                <li>Sponsored products (ads) at the top of page 1 are normal — scroll down to see the true organic competition.</li>
+                <li>A low BSR (e.g. &lt;5,000 in a subcategory) means the product is selling very well — strong market demand signal.</li>
+            </ul>
+            <h3>Limits &amp; constraints</h3>
+            <table class="field-table">
+                <thead><tr><th>Constraint</th><th>Value</th><th>Reason</th></tr></thead>
+                <tbody>
+                    <tr><td>Results per SERP page</td><td>Up to 20</td><td>Standard Amazon pagination</td></tr>
+                    <tr><td>Max review pages per ASIN</td><td>10</td><td>API limit to prevent credit drain</td></tr>
+                    <tr><td>Max ASINs per review scrape</td><td>5</td><td>API limit</td></tr>
+                    <tr><td>Credits per SERP request</td><td>1</td><td>ScrapingBee rendering credit</td></tr>
+                    <tr><td>Credits per product detail</td><td>1</td><td>ScrapingBee rendering credit</td></tr>
+                    <tr><td>Scraper timeout</td><td>30 s</td><td>ScrapingBee default</td></tr>
+                </tbody>
+            </table>
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>Amazon's layout changes periodically. If the parser returns empty results or missing fields, the scrapers (<code>api/search/scraper.py</code> and <code>api/product/scraper.py</code>) may need selector updates.</div>
+        </section>
+
+    </div><!-- /doc-body -->
+</div><!-- /doc-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+var sections = document.querySelectorAll('.doc-section[id]');
+var tocLinks = document.querySelectorAll('#toc-list a');
+function updateToc() {
+    var atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 80);
+    var current = '';
+    if (atBottom) {
+        current = sections[sections.length - 1].getAttribute('id');
+    } else {
+        var scrollY = window.scrollY + Math.floor(window.innerHeight * 0.60);
+        sections.forEach(function(sec) { if (sec.offsetTop <= scrollY) current = sec.getAttribute('id'); });
+    }
+    tocLinks.forEach(function(link) {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+}
+window.addEventListener('scroll', updateToc, { passive: true });
+updateToc();
+</script>
+{% endblock %}

@@ -97,12 +97,18 @@ function buildCard(idea, colStatus) {
     if (colStatus === 'scored') {
         actionBtn = '<button class="btn btn-outline-primary btn-sm w-100 mt-2" onclick="changeStatus(event,\'' + ideaId + '\',\'shortlisted\')">Shortlist <i class="bi bi-arrow-right"></i></button>';
     } else if (colStatus === 'shortlisted') {
-        actionBtn = '<button class="btn btn-outline-warning btn-sm w-100 mt-2" onclick="changeStatus(event,\'' + ideaId + '\',\'pre_sourcing\')"><i class="bi bi-arrow-right"></i> Pre-Sourcing</button>';
+        actionBtn = '<div class="d-flex gap-1 mt-2">' +
+            '<button class="btn btn-outline-secondary btn-sm" onclick="changeStatus(event,\'' + ideaId + '\',\'scored\')" title="Back to Scored"><i class="bi bi-arrow-left"></i></button>' +
+            '<button class="btn btn-outline-warning btn-sm flex-grow-1" onclick="changeStatus(event,\'' + ideaId + '\',\'pre_sourcing\')"><i class="bi bi-arrow-right"></i> Pre-Sourcing</button>' +
+            '</div>';
     } else if (colStatus === 'pre_sourcing') {
         actionBtn = '<div class="d-flex gap-1 mt-2">' +
+            '<button class="btn btn-outline-secondary btn-sm" onclick="changeStatus(event,\'' + ideaId + '\',\'shortlisted\')" title="Back to Shortlisted"><i class="bi bi-arrow-left"></i></button>' +
             '<button class="btn btn-outline-success btn-sm flex-grow-1" onclick="changeStatus(event,\'' + ideaId + '\',\'approved\')"><i class="bi bi-check-lg"></i></button>' +
             '<button class="btn btn-outline-danger btn-sm flex-grow-1" onclick="changeStatus(event,\'' + ideaId + '\',\'dismissed\')"><i class="bi bi-x-lg"></i></button>' +
             '</div>';
+    } else if (colStatus === 'approved') {
+        actionBtn = '<button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="changeStatus(event,\'' + ideaId + '\',\'pre_sourcing\')" title="Move back to Pre-Sourcing"><i class="bi bi-arrow-left me-1"></i>Back to Pre-Sourcing</button>';
     } else if (colStatus === 'dismissed') {
         actionBtn = '<button class="btn btn-outline-secondary btn-sm w-100 mt-2" onclick="changeStatus(event,\'' + ideaId + '\',\'scored\')"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>';
     }

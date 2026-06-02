@@ -1,12 +1,15 @@
 import json
+import os
 
 from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from .memory import IdeaMemoryStore, VALID_STATUSES
+from .memory.store import _get_client as _get_mongo_client
 from .brand_analytics import db as ba_db
 from .brand_analytics.db import get_db_stats, get_latest_ingestion, init_db as ba_init_db
+from .brand_analytics.ingestion import run_ingestion
 from .scoring.scorer import score_idea
 from .scoring import config as scoring_config
 from .llm.tier2c import run_tier2c
@@ -189,6 +192,14 @@ def idea_detail(request, idea_id):
     return Response(idea)
 
 
+@api_view(["DELETE"])
+def idea_delete(request, idea_id):
+    deleted = _store.delete(idea_id)
+    if not deleted:
+        return Response({"error": f"Idea '{idea_id}' not found"}, status=404)
+    return Response({"deleted": True, "idea_id": idea_id})
+
+
 @api_view(["PATCH"])
 def idea_update(request, idea_id):
     """
@@ -346,6 +357,62 @@ def ba_status(request):
         "report_dates": stats["report_dates"],
         "last_ingestion": dict(last) if last else None,
     })
+
+
+@api_view(["POST"])
+def ba_ingest(request):
+    """
+    Trigger a Brand Analytics ingestion run from the UI.
+
+    POST /api/brand-analytics/ingest/
+    Body (JSON, all optional):
+        {
+            "start_date":    "2026-05-01",
+            "end_date":      "2026-05-31",
+            "report_period": "MONTH"       -- MONTH | WEEK | DAY
+        }
+
+    Defaults to the previous full calendar month if dates are omitted.
+    Returns the ingestion result dict (status, rows_inserted, error, etc.).
+    """
+    from datetime import datetime, timedelta, timezone
+
+    data = request.data or {}
+    start_date = (data.get("start_date") or "").strip()
+    end_date = (data.get("end_date") or "").strip()
+    period = (data.get("report_period") or "MONTH").strip().upper()
+
+    if period not in ("MONTH", "WEEK", "DAY"):
+        return Response({"error": "report_period must be MONTH, WEEK, or DAY"}, status=400)
+
+    # Default to previous full calendar month
+    if not start_date or not end_date:
+        today = datetime.now(timezone.utc)
+        first_this = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_prev = first_this - timedelta(days=1)
+        first_prev = last_prev.replace(day=1)
+        start_date = start_date or first_prev.strftime("%Y-%m-%dT00:00:00Z")
+        end_date = end_date or last_prev.strftime("%Y-%m-%dT23:59:59Z")
+
+    if len(start_date) == 10:
+        start_date += "T00:00:00Z"
+    if len(end_date) == 10:
+        end_date += "T23:59:59Z"
+
+    db_path = str(settings.BA_DB_PATH)
+
+    try:
+        result = run_ingestion(
+            db_path=db_path,
+            data_start_date=start_date,
+            data_end_date=end_date,
+            report_period=period,
+        )
+    except Exception as e:
+        return Response({"status": "error", "error": str(e)}, status=500)
+
+    status_code = 200 if result.get("status") == "success" else 502
+    return Response(result, status=status_code)
 
 
 # ── Tier 1 scoring endpoint ───────────────────────────────────────────────────
@@ -615,3 +682,43 @@ def scrape_reviews_view(request):
         force=force,
     )
     return Response(result)
+
+
+# ── Database health status endpoint ──────────────────────────────────────────
+
+
+@api_view(["GET"])
+def db_status(request):
+    """
+    GET /api/db-status/
+
+    Returns MongoDB connectivity and collection stats for the sidebar indicator.
+    Response:
+        {
+            "connected":   true | false,
+            "db_name":     "npd_db",
+            "host":        "localhost:27017",
+            "ideas_count": 42
+        }
+    """
+    db_name = os.getenv("MONGO_DB", "npd_db")
+    try:
+        client = _get_mongo_client()
+        client.admin.command("ping")
+        ideas_count = client[db_name]["ideas"].count_documents({})
+        server_info = client.address  # (host, port) tuple
+        host = "{}:{}".format(server_info[0], server_info[1]) if server_info else "unknown"
+        return Response({
+            "connected": True,
+            "db_name": db_name,
+            "host": host,
+            "ideas_count": ideas_count,
+        })
+    except Exception as e:
+        return Response({
+            "connected": False,
+            "db_name": db_name,
+            "host": "unknown",
+            "ideas_count": 0,
+            "error": str(e),
+        })

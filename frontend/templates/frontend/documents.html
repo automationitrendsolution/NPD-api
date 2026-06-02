@@ -1,0 +1,433 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Documents — NPD Pipeline{% endblock %}
+{% block page_title %}Documents{% endblock %}
+{% block page_subtitle %}Guides, references, and workflow explanations{% endblock %}
+
+{% block content %}
+<style>
+.doc-card {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    transition: box-shadow .18s, border-color .18s, transform .15s;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    cursor: pointer;
+}
+.doc-card:hover {
+    box-shadow: 0 8px 28px rgba(99,102,241,.12);
+    border-color: #6366f1;
+    transform: translateY(-2px);
+    color: inherit;
+    text-decoration: none;
+}
+.doc-card-banner {
+    height: 7px;
+    width: 100%;
+}
+.doc-icon-wrap {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+.doc-tag {
+    display: inline-block;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+    border-radius: 20px;
+    padding: .12rem .55rem;
+    font-size: .7rem;
+    font-weight: 500;
+    margin: .1rem;
+}
+.doc-section-pill {
+    background: #f8fafc;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: .25rem .6rem;
+    font-size: .73rem;
+    color: #475569;
+    margin-bottom: .3rem;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+}
+.search-input {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 10px;
+    padding: .55rem 1rem .55rem 2.6rem;
+    font-size: .9rem;
+    outline: none;
+    width: 100%;
+    max-width: 420px;
+    transition: border-color .15s;
+}
+.search-input:focus { border-color: #6366f1; }
+.search-wrap { position: relative; }
+.search-icon { position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: .95rem; pointer-events: none; }
+.filter-btn {
+    border: 1.5px solid #e5e7eb;
+    background: #fff;
+    border-radius: 20px;
+    padding: .3rem .9rem;
+    font-size: .8rem;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all .15s;
+}
+.filter-btn:hover, .filter-btn.active {
+    border-color: #6366f1;
+    background: #f0f1ff;
+    color: #4f46e5;
+}
+.section-heading {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    color: #9ca3af;
+    margin-bottom: .75rem;
+}
+</style>
+
+<!-- Hero -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#1e2130 0%,#2d3150 100%);border:none">
+    <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <span style="width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,.25);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">
+                <i class="bi bi-journal-bookmark-fill text-primary"></i>
+            </span>
+            <div>
+                <h4 class="mb-0 text-white fw-bold">NPD Pipeline Documentation</h4>
+                <div style="color:rgba(255,255,255,.5);font-size:.85rem">Step-by-step guides, scoring logic, and workflow references</div>
+            </div>
+        </div>
+        <div class="d-flex gap-4 flex-wrap" style="font-size:.82rem;color:rgba(255,255,255,.4)">
+            <span><i class="bi bi-file-text me-1"></i>6 documents</span>
+            <span><i class="bi bi-layers me-1"></i>4 pipeline tiers covered</span>
+            <span><i class="bi bi-clock me-1"></i>~55 min total read time</span>
+        </div>
+    </div>
+</div>
+
+<!-- Search + Filters -->
+<div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+    <div class="search-wrap flex-grow-1" style="max-width:400px">
+        <i class="bi bi-search search-icon"></i>
+        <input type="text" class="search-input" id="doc-search" placeholder="Search documents…" autocomplete="off">
+    </div>
+    <div class="d-flex gap-2 flex-wrap" id="filter-btns">
+        <button class="filter-btn active" data-cat="all">All</button>
+        <button class="filter-btn" data-cat="scoring">Scoring</button>
+        <button class="filter-btn" data-cat="pipeline">Pipeline</button>
+        <button class="filter-btn" data-cat="tools">Tools</button>
+        <button class="filter-btn" data-cat="api">API</button>
+    </div>
+</div>
+
+<!-- Featured Document -->
+<div class="section-heading">FEATURED</div>
+<div class="row g-3 mb-4" id="doc-grid">
+
+    <!-- Scoring Guide -->
+    <div class="col-lg-8 doc-item" data-cat="scoring" data-title="scoring workflow guide how ideas are evaluated tier 1">
+        <a href="{% url 'frontend:scoring-guide' %}" class="doc-card">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#6366f1,#8b5cf6)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#eef2ff">
+                        <i class="bi bi-stars" style="color:#6366f1"></i>
+                    </span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+                            <h5 class="mb-0 fw-bold" style="font-size:1.05rem">Scoring Workflow Guide</h5>
+                            <span class="badge" style="background:#eef2ff;color:#6366f1;font-size:.7rem">Featured</span>
+                        </div>
+                        <div class="text-muted" style="font-size:.83rem">
+                            Complete reference for how the NPD pipeline evaluates, scores, and routes product ideas — from keyword to pre-sourcing document.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div class="doc-section-pill"><i class="bi bi-list-ol text-primary" style="font-size:.8rem"></i> 12-step Tier 1 pipeline</div>
+                        <div class="doc-section-pill"><i class="bi bi-calculator text-warning" style="font-size:.8rem"></i> Composite score formula</div>
+                        <div class="doc-section-pill"><i class="bi bi-graph-up text-success" style="font-size:.8rem"></i> 5 sub-scorers explained</div>
+                        <div class="doc-section-pill"><i class="bi bi-shield-x text-danger" style="font-size:.8rem"></i> Hard-kill rules</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="doc-section-pill"><i class="bi bi-bullseye text-info" style="font-size:.8rem"></i> Score thresholds</div>
+                        <div class="doc-section-pill"><i class="bi bi-chat-left-text text-warning" style="font-size:.8rem"></i> Review scraping (Tier 2A)</div>
+                        <div class="doc-section-pill"><i class="bi bi-robot text-primary" style="font-size:.8rem"></i> LLM analysis (Tier 2C)</div>
+                        <div class="doc-section-pill"><i class="bi bi-box-seam text-success" style="font-size:.8rem"></i> Pre-sourcing (Tier 3)</div>
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <span class="doc-tag">Scoring</span>
+                        <span class="doc-tag">Pipeline</span>
+                        <span class="doc-tag">Tier 1</span>
+                        <span class="doc-tag">LLM</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-3" style="font-size:.78rem;color:#9ca3af;flex-shrink:0">
+                        <span><i class="bi bi-clock me-1"></i>15 min read</span>
+                        <span class="btn btn-primary btn-sm px-3">Open <i class="bi bi-arrow-right ms-1"></i></span>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Quick Reference Card -->
+    <div class="col-lg-4 doc-item" data-cat="scoring" data-title="score thresholds quick reference cheat sheet weights">
+        <a href="{% url 'frontend:scoring-guide' %}#thresholds" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#fffbeb">
+                        <i class="bi bi-lightning-charge-fill" style="color:#f59e0b"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">Quick Reference</h5>
+                        <div class="text-muted" style="font-size:.83rem">Score thresholds, weights, and key numbers at a glance.</div>
+                    </div>
+                </div>
+                <!-- Mini reference table -->
+                <div class="mb-3" style="font-size:.78rem">
+                    <div class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Score ≥ 70</span><span class="badge bg-success">Tier 1.5 Eligible</span></div>
+                    <div class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Score 55–69</span><span class="badge bg-info text-dark">Task Created</span></div>
+                    <div class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Score 45–54</span><span class="badge bg-secondary">Scored (Weak)</span></div>
+                    <div class="d-flex justify-content-between py-1 border-bottom"><span class="text-muted">Score &lt; 45</span><span class="badge bg-danger">Dismissed</span></div>
+                    <div class="d-flex justify-content-between py-1"><span class="text-muted">Hard-kill cooldown</span><span class="fw-medium">30 days</span></div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="doc-tag">Scoring</span>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>2 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Pipeline Workflow -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="pipeline" data-title="pipeline workflow status stages shortlisted pre sourcing approved kanban board">
+        <a href="{% url 'frontend:scoring-guide' %}#overview" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#10b981,#06b6d4)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#ecfdf5">
+                        <i class="bi bi-diagram-3" style="color:#10b981"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">Pipeline Overview</h5>
+                        <div class="text-muted" style="font-size:.83rem">Status flow from new → scored → shortlisted → approved.</div>
+                    </div>
+                </div>
+                <div style="font-size:.78rem" class="mb-3">
+                    <div class="doc-section-pill"><i class="bi bi-arrow-right text-success" style="font-size:.75rem"></i> 4-tier evaluation flow</div>
+                    <div class="doc-section-pill"><i class="bi bi-arrow-right text-success" style="font-size:.75rem"></i> Status transition rules</div>
+                    <div class="doc-section-pill"><i class="bi bi-arrow-right text-success" style="font-size:.75rem"></i> Human review gates</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="doc-tag">Pipeline</span>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>5 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Economics -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="scoring" data-title="economics profit fba fees unit economics revenue estimate price">
+        <a href="{% url 'frontend:scoring-guide' %}#subscores" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#3b82f6,#6366f1)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#eff6ff">
+                        <i class="bi bi-currency-dollar" style="color:#3b82f6"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">FBA Economics Model</h5>
+                        <div class="text-muted" style="font-size:.83rem">How profit per unit and monthly revenue are estimated from Amazon data.</div>
+                    </div>
+                </div>
+                <div class="formula-box mb-3" style="background:#f8f9ff;border:1px solid #dee2e6;border-radius:8px;padding:.65rem .85rem;font-family:monospace;font-size:.75rem;line-height:1.8">
+                    Net Profit = Price<br>
+                    &nbsp;&nbsp;− (Price × 15%) Amazon fee<br>
+                    &nbsp;&nbsp;− $4.50 FBA fulfillment<br>
+                    &nbsp;&nbsp;− (Price × 33%) COGS
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="doc-tag">Scoring</span>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>4 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Hard Kill Rules -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="scoring" data-title="hard kill dismissed patterns keyword banned categories food book firearms">
+        <a href="{% url 'frontend:scoring-guide' %}#hardkill" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#ef4444,#dc2626)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#fef2f2">
+                        <i class="bi bi-shield-x" style="color:#ef4444"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">Hard-Kill Rules</h5>
+                        <div class="text-muted" style="font-size:.83rem">Categories and patterns that instantly dismiss an idea without scraping.</div>
+                    </div>
+                </div>
+                <div style="font-size:.78rem" class="mb-3">
+                    <div class="doc-section-pill"><i class="bi bi-x-circle text-danger" style="font-size:.75rem"></i> 40+ keyword patterns</div>
+                    <div class="doc-section-pill"><i class="bi bi-x-circle text-danger" style="font-size:.75rem"></i> SERP title checks</div>
+                    <div class="doc-section-pill"><i class="bi bi-x-circle text-danger" style="font-size:.75rem"></i> Price floor ($15 min)</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="doc-tag">Scoring</span>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>3 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Amazon Research Guide -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="tools" data-title="amazon research competitor scraping serp product reviews tier 2a">
+        <a href="{% url 'frontend:doc-amazon-research' %}" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#f59e0b,#ff6900)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#fffbeb">
+                        <i class="bi bi-shop" style="color:#f59e0b"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">Amazon Research Guide</h5>
+                        <div class="text-muted" style="font-size:.83rem">How to search competitors, interpret SERP data, and trigger review scraping.</div>
+                    </div>
+                </div>
+                <div style="font-size:.78rem" class="mb-3">
+                    <div class="doc-section-pill"><i class="bi bi-search text-warning" style="font-size:.75rem"></i> SERP scraping &amp; product detail</div>
+                    <div class="doc-section-pill"><i class="bi bi-chat-left-text text-warning" style="font-size:.75rem"></i> Review scraping (Tier 2A)</div>
+                    <div class="doc-section-pill"><i class="bi bi-bar-chart text-warning" style="font-size:.75rem"></i> BSR, ratings, price fields</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div><span class="doc-tag">Tools</span><span class="doc-tag ms-1">Pipeline</span></div>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>10 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- Brand Analytics Guide -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="tools" data-title="brand analytics BA search frequency rank demand ingestion explorer spapi">
+        <a href="{% url 'frontend:doc-ba' %}" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#0ea5e9,#06b6d4)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#f0f9ff">
+                        <i class="bi bi-bar-chart-line" style="color:#0ea5e9"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">Brand Analytics Guide</h5>
+                        <div class="text-muted" style="font-size:.83rem">BA data ingestion, explorer usage, and how search frequency rank feeds demand scoring.</div>
+                    </div>
+                </div>
+                <div style="font-size:.78rem" class="mb-3">
+                    <div class="doc-section-pill"><i class="bi bi-database text-info" style="font-size:.75rem"></i> SP-API ingestion setup</div>
+                    <div class="doc-section-pill"><i class="bi bi-bar-chart-line text-info" style="font-size:.75rem"></i> BA Explorer walkthrough</div>
+                    <div class="doc-section-pill"><i class="bi bi-lightning text-info" style="font-size:.75rem"></i> Demand scoring formula</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div><span class="doc-tag">Tools</span><span class="doc-tag ms-1">Scoring</span></div>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>12 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+    <!-- API Reference -->
+    <div class="col-md-6 col-lg-4 doc-item" data-cat="api" data-title="api reference endpoints rest json ideas score brand analytics reviews llm presource">
+        <a href="{% url 'frontend:doc-api' %}" class="doc-card h-100">
+            <div class="doc-card-banner" style="background:linear-gradient(90deg,#8b5cf6,#6366f1)"></div>
+            <div class="card-body p-4">
+                <div class="d-flex align-items-start gap-3 mb-3">
+                    <span class="doc-icon-wrap" style="background:#f5f3ff">
+                        <i class="bi bi-braces" style="color:#8b5cf6"></i>
+                    </span>
+                    <div>
+                        <h5 class="mb-1 fw-bold" style="font-size:1.05rem">API Reference</h5>
+                        <div class="text-muted" style="font-size:.83rem">Complete REST API documentation — every endpoint, request body, and response format.</div>
+                    </div>
+                </div>
+                <div style="font-size:.78rem" class="mb-3">
+                    <div class="doc-section-pill"><i class="bi bi-collection text-purple" style="font-size:.75rem;color:#8b5cf6"></i> 14 endpoints documented</div>
+                    <div class="doc-section-pill"><i class="bi bi-code-slash" style="font-size:.75rem;color:#8b5cf6"></i> Request &amp; response examples</div>
+                    <div class="doc-section-pill"><i class="bi bi-exclamation-circle" style="font-size:.75rem;color:#8b5cf6"></i> Error codes &amp; CSRF guide</div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div><span class="doc-tag">API</span><span class="doc-tag ms-1">Reference</span></div>
+                    <span style="font-size:.78rem;color:#9ca3af"><i class="bi bi-clock me-1"></i>20 min</span>
+                </div>
+            </div>
+        </a>
+    </div>
+
+</div>
+
+<!-- No results state (hidden by default) -->
+<div id="no-results" class="text-center py-5 d-none">
+    <i class="bi bi-search display-4 text-muted d-block mb-3"></i>
+    <h6 class="text-muted">No documents match your search</h6>
+    <p class="text-muted small">Try a different keyword or clear the filter.</p>
+    <button class="btn btn-outline-secondary btn-sm" onclick="clearSearch()">Clear search</button>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filter buttons
+document.querySelectorAll('.filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        filterDocs();
+    });
+});
+
+// Search
+document.getElementById('doc-search').addEventListener('input', filterDocs);
+
+function filterDocs() {
+    var cat = document.querySelector('.filter-btn.active')?.dataset.cat || 'all';
+    var query = document.getElementById('doc-search').value.toLowerCase().trim();
+    var items = document.querySelectorAll('.doc-item');
+    var visible = 0;
+    items.forEach(function(item) {
+        var catMatch = cat === 'all' || item.dataset.cat === cat;
+        var textMatch = !query || (item.dataset.title || '').includes(query);
+        var show = catMatch && textMatch;
+        item.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+    document.getElementById('no-results').classList.toggle('d-none', visible > 0);
+}
+
+function clearSearch() {
+    document.getElementById('doc-search').value = '';
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-cat="all"]').classList.add('active');
+    filterDocs();
+}
+</script>
+{% endblock %}

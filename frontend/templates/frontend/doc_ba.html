@@ -1,0 +1,302 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Brand Analytics Guide — NPD Pipeline{% endblock %}
+{% block page_title %}Brand Analytics{% endblock %}
+{% block page_subtitle %}Search term data — ingestion, explorer, and scoring integration{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'frontend:documents' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Documents
+</a>
+<a href="{% url 'frontend:ba-explorer' %}" class="btn btn-primary btn-sm">
+    <i class="bi bi-bar-chart-line me-1"></i>Open Explorer
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.doc-layout { display: flex; gap: 2rem; align-items: flex-start; }
+.doc-toc {
+    width: 210px; flex-shrink: 0;
+    position: sticky; top: 72px;
+    background: #fff; border: 1px solid var(--border);
+    border-radius: var(--r); padding: 1rem; box-shadow: var(--shadow);
+}
+.doc-toc-title { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .9px; color: var(--text-3); margin-bottom: .65rem; }
+#toc-list { list-style: none; margin: 0; padding: 0; }
+#toc-list a {
+    display: block; padding: .32rem .55rem; font-size: .78rem;
+    color: var(--text-2); text-decoration: none; border-radius: .3rem;
+    border-left: 2px solid transparent; transition: all .12s;
+}
+#toc-list a:hover { color: var(--accent); background: var(--accent-dim); }
+#toc-list a.active { color: var(--accent); background: var(--accent-dim); border-left-color: var(--accent); font-weight: 600; }
+.doc-body { flex: 1; min-width: 0; }
+.doc-section { margin-bottom: 2.5rem; scroll-margin-top: 80px; }
+.doc-section h2 { font-size: 1.2rem; font-weight: 700; margin-bottom: .5rem; padding-bottom: .5rem; border-bottom: 2px solid #f1f3f5; }
+.doc-section h3 { font-size: .97rem; font-weight: 700; margin: 1.2rem 0 .5rem; color: var(--text-1); }
+.doc-section p, .doc-section li { font-size: .875rem; color: var(--text-2); line-height: 1.7; }
+.doc-section ul, .doc-section ol { padding-left: 1.4rem; }
+.doc-section li { margin-bottom: .3rem; }
+.code-block {
+    background: #1e2130; color: #e2e8f0;
+    border-radius: .45rem; padding: .9rem 1.1rem;
+    font-family: 'Fira Code', 'Consolas', monospace; font-size: .78rem;
+    line-height: 1.75; overflow-x: auto; margin: .75rem 0;
+}
+.code-block .cm { color: #6b7280; }
+.code-block .ck { color: #93c5fd; }
+.code-block .cv { color: #86efac; }
+.code-block .cs { color: #fca5a5; }
+.info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #1e40af; margin: .75rem 0; }
+.warn-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #92400e; margin: .75rem 0; }
+.tip-box  { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: .45rem; padding: .85rem 1rem; font-size: .82rem; color: #166534; margin: .75rem 0; }
+.field-table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .75rem 0; }
+.field-table th { background: #fafafa; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-3); padding: .5rem .75rem; border-bottom: 1px solid var(--border); text-align: left; }
+.field-table td { padding: .55rem .75rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+.field-table tr:last-child td { border-bottom: none; }
+.field-name { font-family: monospace; font-size: .78rem; background: #f1f5f9; padding: .1rem .35rem; border-radius: .25rem; color: #334155; white-space: nowrap; }
+.score-band { display: inline-block; padding: .2em .55em; border-radius: .3rem; font-size: .75rem; font-weight: 700; }
+</style>
+
+<div class="doc-layout">
+
+    <!-- TOC -->
+    <aside class="doc-toc">
+        <div class="doc-toc-title">Contents</div>
+        <ul id="toc-list">
+            <li><a href="#overview">1 Overview</a></li>
+            <li><a href="#what-is-ba">2 What is BA Data</a></li>
+            <li><a href="#data-fields">3 Data Fields</a></li>
+            <li><a href="#ingestion">4 Running Ingestion</a></li>
+            <li><a href="#explorer">5 Using BA Explorer</a></li>
+            <li><a href="#scoring">6 How BA Feeds Scoring</a></li>
+            <li><a href="#no-data">7 When No BA Data Exists</a></li>
+        </ul>
+    </aside>
+
+    <!-- Body -->
+    <div class="doc-body">
+
+        <!-- 1 Overview -->
+        <section class="doc-section" id="overview">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">1</span>Overview</h2>
+            <p>The <strong>Brand Analytics (BA)</strong> module stores and queries Amazon's <em>Search Term Report</em> data — a dataset that reveals how often shoppers search for any given term, which products they click, and which products they ultimately buy. This data is the foundation of the <strong>Demand sub-scorer</strong> in Tier 1.</p>
+            <div class="row g-3 mt-1">
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-database text-primary d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">SQLite Index</div>
+                        <div class="text-muted" style="font-size:.75rem">Local indexed DB of Amazon search term frequency data</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-lightning text-warning d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">Fast Lookup</div>
+                        <div class="text-muted" style="font-size:.75rem">O(1) keyword lookup during Tier 1 scoring — no API latency</div>
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="card p-3 text-center h-100">
+                        <i class="bi bi-bar-chart-line text-success d-block mb-2" style="font-size:1.6rem"></i>
+                        <div class="fw-bold" style="font-size:.85rem">Explorer UI</div>
+                        <div class="text-muted" style="font-size:.75rem">Browse, filter, and export any search term from the dataset</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2 What is BA Data -->
+        <section class="doc-section" id="what-is-ba">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">2</span>What is Brand Analytics Data</h2>
+            <p>Amazon Brand Analytics is a report available to brand-registered sellers. The <strong>Search Term Report</strong> shows, for any given period (month/week), the top searched terms on Amazon along with:</p>
+            <ul>
+                <li>How frequently each term was searched (<em>Search Frequency Rank</em>)</li>
+                <li>Which 3 ASINs received the most clicks for that term</li>
+                <li>The <em>click share</em> and <em>conversion share</em> for each of those ASINs</li>
+            </ul>
+            <div class="info-box"><i class="bi bi-info-circle-fill me-2"></i>BA data is aggregated and anonymised by Amazon. It does not provide raw search volume numbers — instead it provides a <strong>rank</strong> (1 = most searched term in that period). The NPD Pipeline maps this rank to a demand score using a logarithmic scale.</div>
+            <h3>Data coverage</h3>
+            <p>The dataset covers the top ~600,000 most-searched terms on Amazon US. If a keyword is not in the dataset, it means either:</p>
+            <ul>
+                <li>It is searched so infrequently it falls outside the top ~600k, <strong>or</strong></li>
+                <li>The BA database has not been populated or is out of date</li>
+            </ul>
+        </section>
+
+        <!-- 3 Data Fields -->
+        <section class="doc-section" id="data-fields">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">3</span>Data Fields Explained</h2>
+            <table class="field-table">
+                <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td><span class="field-name">search_term</span></td><td>string</td>
+                        <td>The exact search term as Amazon recorded it (lowercased)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="field-name">search_frequency_rank</span></td><td>integer</td>
+                        <td>Rank among all terms for that period. Rank 1 = most searched. Lower number = higher demand.</td>
+                    </tr>
+                    <tr>
+                        <td><span class="field-name">report_period</span></td><td>string</td>
+                        <td>The time period this data covers — e.g. <code>2026-05</code> for May 2026 monthly data</td>
+                    </tr>
+                    <tr>
+                        <td><span class="field-name">clicked_asin_1/2/3</span></td><td>string</td>
+                        <td>The top 3 ASINs that shoppers clicked after searching this term</td>
+                    </tr>
+                    <tr>
+                        <td><span class="field-name">click_share_1/2/3</span></td><td>float (0–1)</td>
+                        <td>Percentage of clicks that went to each of the top 3 ASINs. A high click_share_1 (e.g. 0.6) means one product dominates the search.</td>
+                    </tr>
+                    <tr>
+                        <td><span class="field-name">conversion_share_1/2/3</span></td><td>float (0–1)</td>
+                        <td>Percentage of purchases made after searching this term that resulted in each ASIN being bought</td>
+                    </tr>
+                </tbody>
+            </table>
+            <h3>Interpreting Search Frequency Rank</h3>
+            <table class="field-table">
+                <thead><tr><th>Rank Range</th><th>Demand Level</th><th>Demand Score</th></tr></thead>
+                <tbody>
+                    <tr><td>1 – 1,000</td><td>Extremely high demand</td><td><span class="score-band" style="background:#dcfce7;color:#15803d">80–100</span></td></tr>
+                    <tr><td>1,001 – 10,000</td><td>High demand</td><td><span class="score-band" style="background:#dcfce7;color:#15803d">60–79</span></td></tr>
+                    <tr><td>10,001 – 100,000</td><td>Moderate demand</td><td><span class="score-band" style="background:#fef9c3;color:#a16207">35–59</span></td></tr>
+                    <tr><td>100,001 – 600,000</td><td>Low demand</td><td><span class="score-band" style="background:#fee2e2;color:#dc2626">10–34</span></td></tr>
+                    <tr><td>Not found</td><td>Very low / niche</td><td><span class="score-band" style="background:#f3f4f6;color:#6b7280">Rescaled (35)</span></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 4 Ingestion -->
+        <section class="doc-section" id="ingestion">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">4</span>Running Ingestion</h2>
+            <p>BA data is fetched from Amazon's Selling Partner API (SP-API) and stored in a local SQLite file. You must run ingestion before using BA data in scoring.</p>
+            <h3>Management command</h3>
+            <div class="code-block"><span class="cm"># Inside the Docker container</span>
+docker exec -it npd_web python manage.py ingest_brand_analytics
+
+<span class="cm"># With specific date range</span>
+docker exec -it npd_web python manage.py ingest_brand_analytics \
+  --start-date 2026-05-01 \
+  --end-date   2026-05-31 \
+  --period     MONTH</div>
+            <h3>Via the API</h3>
+            <div class="code-block"><span class="ck">POST</span> /api/brand-analytics/ingest/
+
+{
+  <span class="cv">"start_date"</span>:    <span class="cs">"2026-05-01"</span>,
+  <span class="cv">"end_date"</span>:      <span class="cs">"2026-05-31"</span>,
+  <span class="cv">"report_period"</span>: <span class="cs">"MONTH"</span>
+}
+
+<span class="cm">// Omit all fields to default to previous full calendar month</span>
+</div>
+            <h3>Ingestion result</h3>
+            <table class="field-table">
+                <thead><tr><th>Field</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="field-name">status</span></td><td><code>success</code> or <code>error</code></td></tr>
+                    <tr><td><span class="field-name">rows_inserted</span></td><td>Number of search term rows added to the SQLite index</td></tr>
+                    <tr><td><span class="field-name">report_date</span></td><td>The period label stored (e.g. <code>2026-05</code>)</td></tr>
+                    <tr><td><span class="field-name">duration_seconds</span></td><td>Total time for the ingestion run</td></tr>
+                    <tr><td><span class="field-name">completed_at</span></td><td>ISO timestamp of completion — visible in sidebar DB status</td></tr>
+                </tbody>
+            </table>
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>Ingestion requires valid SP-API credentials in your <code>.env</code> file: <code>SPAPI_REFRESH_TOKEN</code>, <code>SPAPI_CLIENT_ID</code>, <code>SPAPI_CLIENT_SECRET</code>, and <code>SPAPI_MARKETPLACE_ID</code>. Without these the ingestion will fail.</div>
+            <h3>How often to refresh</h3>
+            <p>Amazon publishes monthly BA reports on approximately the 15th of the following month. Run ingestion once per month after the new report is available. The scorer always uses the latest available period in the database.</p>
+        </section>
+
+        <!-- 5 Using BA Explorer -->
+        <section class="doc-section" id="explorer">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">5</span>Using the BA Explorer</h2>
+            <p>Navigate to <strong>Tools → BA Explorer</strong> to browse the indexed search term data interactively.</p>
+            <h3>Search</h3>
+            <p>Type any keyword to look it up. The result shows its <em>Search Frequency Rank</em>, click shares, conversion shares, and the top 3 clicked ASINs for the most recent period in the database.</p>
+            <h3>Filters</h3>
+            <ul>
+                <li><strong>Report Period</strong> — select a specific month if multiple periods are indexed</li>
+                <li><strong>Min Rank / Max Rank</strong> — filter by demand tier (e.g. rank 1–10,000 = high demand)</li>
+            </ul>
+            <h3>What to look for</h3>
+            <ul>
+                <li>A <strong>low rank</strong> (e.g. 1,500) means the term is very commonly searched — strong demand.</li>
+                <li>A <strong>high click_share_1</strong> (e.g. 0.65) means a single ASIN captures most clicks — indicates a dominant brand, which is a <em>differentiation challenge</em>.</li>
+                <li><strong>Multiple ASINs with balanced click shares</strong> (e.g. 0.25 / 0.20 / 0.18) indicates a fragmented market — easier to enter.</li>
+            </ul>
+            <div class="tip-box"><i class="bi bi-lightbulb-fill me-2"></i>Use the BA Explorer to manually validate a keyword before scoring it. If the rank is above 200,000, the demand is probably too low for a viable product — the economics scorer will likely penalise it.</div>
+        </section>
+
+        <!-- 6 Scoring Integration -->
+        <section class="doc-section" id="scoring">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">6</span>How BA Data Feeds Scoring</h2>
+            <p>During Tier 1 scoring, the <strong>Demand sub-scorer</strong> queries the BA index for the keyword being scored. This is the primary use of BA data in the pipeline.</p>
+            <div class="code-block"><span class="cm">Tier 1 scoring flow for "bamboo travel mug":</span>
+
+1. <span class="ck">BA lookup</span>: search_frequency_rank = 4,521
+2. <span class="cv">Rank → Demand score</span>: rank 4,521 → score 71
+3. <span class="ck">Weight applied</span>: Demand × 35% = 24.85 contribution
+4. <span class="cv">Composite score</span>: sum of all 5 weighted sub-scores
+</div>
+            <h3>The Demand scorer formula</h3>
+            <p>The rank is mapped to a 0–100 score using a logarithmic scale so that very high-demand terms (rank 1–1,000) get scores of 80–100, while mid-range terms (10k–100k) score in the 35–60 range.</p>
+            <div class="code-block"><span class="cm"># Simplified demand score formula</span>
+import math
+
+def demand_score(rank):
+    if rank is None:
+        return 35  <span class="cm"># rescaled when no BA data</span>
+    max_rank = 600_000
+    score = 100 * (1 - math.log(rank) / math.log(max_rank))
+    return max(0, min(100, round(score)))
+</div>
+            <h3>BA data weight in composite score</h3>
+            <table class="field-table">
+                <thead><tr><th>Sub-scorer</th><th>Weight</th><th>BA data used?</th></tr></thead>
+                <tbody>
+                    <tr><td>Demand</td><td>35%</td><td><span class="badge bg-success">Yes — primary input</span></td></tr>
+                    <tr><td>Saturation</td><td>25%</td><td><span class="badge bg-secondary">No — from SERP</span></td></tr>
+                    <tr><td>Differentiation</td><td>20%</td><td><span class="badge bg-secondary">No — from SERP</span></td></tr>
+                    <tr><td>Fit</td><td>10%</td><td><span class="badge bg-secondary">No — keyword rules</span></td></tr>
+                    <tr><td>Economic Viability</td><td>10%</td><td><span class="badge bg-secondary">No — from product prices</span></td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- 7 When No BA Data -->
+        <section class="doc-section" id="no-data">
+            <h2><span class="text-muted me-2" style="font-size:.9rem">7</span>When No BA Data Exists</h2>
+            <p>If a keyword is not found in the BA index, the scorer uses a <strong>rescaled demand score of 35</strong> (below the mid-point) and adds the flag <code>no_ba_data</code> to the idea. The composite score is then recalculated with the remaining 65% of weight redistributed proportionally.</p>
+            <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>An idea scored with <code>no_ba_data</code> may have an artificially deflated or inflated demand component. Review the score carefully before promoting. Check the BA Explorer to verify whether the term exists under a slightly different spelling.</div>
+            <h3>Checking for no_ba_data ideas</h3>
+            <p>On the Dashboard or Task Board, the <code>no ba data</code> flag badge appears on any idea affected. You can also filter by this flag via the API:</p>
+            <div class="code-block"><span class="ck">GET</span> /api/ideas/?flag=no_ba_data</div>
+        </section>
+
+    </div><!-- /doc-body -->
+</div><!-- /doc-layout -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+var sections = document.querySelectorAll('.doc-section[id]');
+var tocLinks = document.querySelectorAll('#toc-list a');
+function updateToc() {
+    var atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 80);
+    var current = '';
+    if (atBottom) {
+        current = sections[sections.length - 1].getAttribute('id');
+    } else {
+        var scrollY = window.scrollY + Math.floor(window.innerHeight * 0.60);
+        sections.forEach(function(sec) { if (sec.offsetTop <= scrollY) current = sec.getAttribute('id'); });
+    }
+    tocLinks.forEach(function(link) {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+}
+window.addEventListener('scroll', updateToc, { passive: true });
+updateToc();
+</script>
+{% endblock %}

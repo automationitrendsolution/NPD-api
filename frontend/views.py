@@ -23,3 +23,23 @@ def research(request):
 
 def ba_explorer(request):
     return render(request, 'frontend/ba_explorer.html')
+
+
+def scoring_guide(request):
+    return render(request, 'frontend/scoring_guide.html')
+
+
+def documents(request):
+    return render(request, 'frontend/documents.html')
+
+
+def doc_amazon_research(request):
+    return render(request, 'frontend/doc_amazon_research.html')
+
+
+def doc_ba(request):
+    return render(request, 'frontend/doc_ba.html')
+
+
+def doc_api(request):
+    return render(request, 'frontend/doc_api.html')

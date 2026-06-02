@@ -8,142 +8,351 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        :root { --sidebar-width: 250px; }
+        /* ── Design Tokens ────────────────────────────────────────── */
+        :root {
+            --sidebar-w: 240px;
+            --sidebar-bg: #0f1117;
+            --sidebar-border: rgba(255,255,255,.06);
+            --accent: #6366f1;
+            --accent-dim: rgba(99,102,241,.13);
+            --surface: #ffffff;
+            --bg: #f0f2f5;
+            --border: #e5e7eb;
+            --text-1: #111827;
+            --text-2: #4b5563;
+            --text-3: #9ca3af;
+            --r: .5rem;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,.05), 0 1px 3px rgba(0,0,0,.06);
+            --shadow:    0 1px 3px rgba(0,0,0,.04), 0 4px 10px rgba(0,0,0,.05);
+            --shadow-lg: 0 6px 20px rgba(0,0,0,.09), 0 2px 6px rgba(0,0,0,.05);
+            --t: .15s ease;
+        }
         *, *::before, *::after { box-sizing: border-box; }
-        body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
+        body {
+            background: var(--bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+            margin: 0;
+            color: var(--text-1);
+            font-size: .9rem;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-        /* ── Sidebar ─────────────────────────────────── */
+        /* ── Custom scrollbar ─────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+        /* ── Sidebar ──────────────────────────────────────────────── */
         .sidebar {
             position: fixed; top: 0; left: 0;
-            height: 100vh; width: var(--sidebar-width);
-            background: #1e2130; z-index: 1000;
-            overflow-y: auto; display: flex; flex-direction: column;
+            height: 100vh; width: var(--sidebar-w);
+            background: var(--sidebar-bg);
+            z-index: 1000;
+            overflow-y: auto; overflow-x: hidden;
+            display: flex; flex-direction: column;
+            border-right: 1px solid rgba(255,255,255,.04);
         }
-        .sidebar-brand { padding: 1.25rem; border-bottom: 1px solid rgba(255,255,255,.1); }
-        .brand-title { color: #fff; font-weight: 700; font-size: 1.05rem; margin: 0; line-height: 1.3; }
-        .brand-sub { color: rgba(255,255,255,.38); font-size: .68rem; text-transform: uppercase; letter-spacing: 1px; margin-top: .15rem; }
-        .sidebar-section { color: rgba(255,255,255,.28); font-size: .66rem; text-transform: uppercase; letter-spacing: 1.2px; padding: .85rem 1.25rem .2rem; }
+        .sidebar-brand {
+            padding: 1rem 1.15rem;
+            border-bottom: 1px solid var(--sidebar-border);
+            display: flex; align-items: center; gap: .7rem;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .sidebar-brand-icon {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; box-shadow: 0 2px 8px rgba(99,102,241,.4);
+        }
+        .brand-title { color: #f9fafb; font-weight: 700; font-size: .92rem; margin: 0; line-height: 1.25; }
+        .brand-sub   { color: rgba(255,255,255,.28); font-size: .62rem; text-transform: uppercase; letter-spacing: 1.3px; margin-top: .1rem; }
+
+        .sidebar-nav { padding: .65rem 0; flex: 1; overflow-y: auto; }
+        .sidebar-section {
+            color: rgba(255,255,255,.2);
+            font-size: .59rem; text-transform: uppercase;
+            letter-spacing: 1.5px; font-weight: 700;
+            padding: .9rem 1.15rem .25rem;
+        }
         .sidebar-link {
             display: flex; align-items: center; gap: .6rem;
-            padding: .5rem 1.25rem; color: rgba(255,255,255,.62);
-            text-decoration: none; font-size: .875rem; transition: all .15s;
-            border-left: 3px solid transparent;
+            padding: .44rem 1.15rem;
+            color: rgba(255,255,255,.5);
+            text-decoration: none; font-size: .82rem; font-weight: 500;
+            transition: color var(--t), background var(--t), border-color var(--t);
+            border-left: 2px solid transparent;
+            margin: .06rem 0;
+            white-space: nowrap;
         }
-        .sidebar-link:hover { color: #fff; background: rgba(255,255,255,.07); }
-        .sidebar-link.active { color: #fff; background: rgba(99,102,241,.18); border-left-color: #6366f1; }
-        .sidebar-link i { width: 1.1rem; text-align: center; font-size: .95rem; flex-shrink: 0; }
-        .sidebar-footer { padding: .85rem 1.25rem; border-top: 1px solid rgba(255,255,255,.08); margin-top: auto; }
+        .sidebar-link i { width: .95rem; text-align: center; font-size: .88rem; flex-shrink: 0; opacity: .7; transition: opacity var(--t); }
+        .sidebar-link:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.05); }
+        .sidebar-link:hover i { opacity: 1; }
+        .sidebar-link.active { color: #c7d2fe; background: rgba(99,102,241,.15); border-left-color: var(--accent); }
+        .sidebar-link.active i { opacity: 1; color: #a5b4fc; }
 
-        /* ── Main layout ─────────────────────────────── */
-        .main-wrapper { margin-left: var(--sidebar-width); min-height: 100vh; display: flex; flex-direction: column; }
-        .topbar {
-            background: #fff; border-bottom: 1px solid #e5e7eb;
-            padding: .7rem 1.5rem; position: sticky; top: 0; z-index: 100;
-            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        .sidebar-footer {
+            padding: .8rem 1.15rem;
+            border-top: 1px solid var(--sidebar-border);
+            flex-shrink: 0;
         }
-        .topbar-left h6 { font-size: .9375rem; font-weight: 600; margin: 0; line-height: 1.3; }
-        .topbar-left small { color: #6b7280; font-size: .78rem; }
+
+        /* ── Main layout ──────────────────────────────────────────── */
+        .main-wrapper { margin-left: var(--sidebar-w); min-height: 100vh; display: flex; flex-direction: column; }
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: .6rem 1.5rem;
+            position: sticky; top: 0; z-index: 100;
+            display: flex; align-items: center;
+            justify-content: space-between; gap: 1rem;
+            box-shadow: 0 1px 0 var(--border), 0 2px 6px rgba(0,0,0,.03);
+        }
+        .topbar-title { font-size: .95rem; font-weight: 700; margin: 0; color: var(--text-1); line-height: 1.25; }
+        .topbar-sub   { color: var(--text-3); font-size: .73rem; margin-top: .05rem; }
         .page-content { padding: 1.5rem; flex: 1; }
 
-        /* ── Cards ───────────────────────────────────── */
-        .card { border: none; box-shadow: 0 1px 4px rgba(0,0,0,.07); border-radius: .5rem; }
-        .card-header { background: #fff; border-bottom: 1px solid #f1f3f4; font-weight: 600; font-size: .875rem; padding: .75rem 1rem; }
-        .card-header.d-flex { align-items: center; gap: .5rem; }
+        /* ── Cards ────────────────────────────────────────────────── */
+        .card {
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            border-radius: var(--r);
+            background: var(--surface);
+        }
+        .card-header {
+            background: var(--surface);
+            border-bottom: 1px solid #f1f3f5;
+            font-weight: 600; font-size: .825rem;
+            padding: .7rem 1rem;
+            color: var(--text-1);
+            border-radius: var(--r) var(--r) 0 0;
+        }
+        .card-header.d-flex { align-items: center; gap: .45rem; }
+        .card-header i { font-size: .88rem; }
 
-        /* ── Score badges ────────────────────────────── */
-        .score-badge { display: inline-block; font-size: .78rem; font-weight: 600; padding: .28em .6em; border-radius: .35rem; }
+        /* ── Stat cards ───────────────────────────────────────────── */
+        .stat-card {
+            position: relative; overflow: hidden;
+            border: 1px solid var(--border);
+            border-radius: var(--r);
+            background: var(--surface);
+            padding: 1rem 1.1rem 1rem;
+            box-shadow: var(--shadow);
+            transition: box-shadow var(--t), transform var(--t);
+            cursor: default;
+        }
+        .stat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+        .stat-card::after {
+            content: ''; position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            border-radius: var(--r) var(--r) 0 0;
+        }
+        .stat-card.st-new::after    { background: #9ca3af; }
+        .stat-card.st-scored::after { background: #06b6d4; }
+        .stat-card.st-short::after  { background: #6366f1; }
+        .stat-card.st-pre::after    { background: #f59e0b; }
+        .stat-card.st-appr::after   { background: #22c55e; }
+        .stat-card.st-dism::after   { background: #ef4444; }
+        .stat-num   { font-size: 2rem; font-weight: 800; line-height: 1; letter-spacing: -1px; margin-top: .15rem; }
+        .stat-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: var(--text-3); margin-top: .35rem; }
+        .stat-icon  { position: absolute; right: .85rem; top: .85rem; opacity: .1; font-size: 1.8rem; pointer-events: none; }
+
+        /* ── Shortcut cards ───────────────────────────────────────── */
+        .shortcut-card {
+            display: flex; align-items: center; gap: .8rem;
+            padding: .8rem .95rem;
+            border-radius: var(--r);
+            border: 1px solid var(--border);
+            text-decoration: none;
+            color: var(--text-1);
+            background: var(--surface);
+            box-shadow: var(--shadow);
+            transition: box-shadow var(--t), border-color var(--t), transform var(--t), color var(--t);
+        }
+        .shortcut-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim), var(--shadow);
+            transform: translateY(-1px);
+            color: var(--text-1);
+        }
+        .shortcut-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; font-size: 1.1rem;
+        }
+        .shortcut-title { font-size: .855rem; font-weight: 600; line-height: 1.25; }
+        .shortcut-desc  { font-size: .7rem; color: var(--text-3); margin-top: .1rem; line-height: 1.3; }
+        .shortcut-arrow { margin-left: auto; color: var(--text-3); font-size: .7rem; transition: transform var(--t), color var(--t); flex-shrink: 0; }
+        .shortcut-card:hover .shortcut-arrow { transform: translateX(3px); color: var(--accent); }
+
+        /* ── Score badges ─────────────────────────────────────────── */
+        .score-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: .72rem; font-weight: 700;
+            padding: .2em .55em; border-radius: .35rem;
+            letter-spacing: .2px; white-space: nowrap;
+        }
         .score-eligible   { background: #dcfce7; color: #15803d; }
         .score-task       { background: #fef9c3; color: #a16207; }
         .score-below-task { background: #f3f4f6; color: #6b7280; }
         .score-dismissed  { background: #fee2e2; color: #dc2626; }
 
-        /* ── Kanban ──────────────────────────────────── */
+        /* ── Tables ───────────────────────────────────────────────── */
+        .table { font-size: .82rem; }
+        .table th {
+            font-size: .68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .5px;
+            color: var(--text-3); background: #fafafa !important;
+            padding-top: .6rem; padding-bottom: .6rem;
+        }
+        .table td { vertical-align: middle; }
+        .table-hover tbody tr:hover td { background-color: #fafbff !important; }
+
+        /* ── Kanban ───────────────────────────────────────────────── */
         .kanban-col { min-width: 255px; max-width: 255px; flex-shrink: 0; }
         .kanban-header {
-            background: #fff; border-radius: .5rem .5rem 0 0;
-            padding: .7rem 1rem; font-weight: 600; font-size: .85rem;
-            display: flex; align-items: center; gap: .5rem;
+            background: var(--surface);
+            border-radius: var(--r) var(--r) 0 0;
+            padding: .65rem 1rem; font-weight: 600; font-size: .825rem;
+            display: flex; align-items: center; gap: .45rem;
             border-bottom: 3px solid;
         }
         .kanban-body {
-            background: #f3f4f6; border-radius: 0 0 .5rem .5rem;
-            padding: .6rem; min-height: 200px;
+            background: #f3f4f6; border-radius: 0 0 var(--r) var(--r);
+            padding: .5rem; min-height: 200px;
             max-height: calc(100vh - 215px); overflow-y: auto;
         }
         .idea-card {
-            background: #fff; border-radius: .4rem;
-            padding: .7rem .75rem; margin-bottom: .45rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,.05);
-            cursor: pointer; transition: box-shadow .15s, transform .1s;
-            border: 1px solid #f1f3f4;
+            background: var(--surface); border-radius: .4rem;
+            padding: .65rem .75rem; margin-bottom: .4rem;
+            box-shadow: var(--shadow-sm); cursor: pointer;
+            transition: box-shadow var(--t), transform var(--t);
+            border: 1px solid var(--border);
         }
-        .idea-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); transform: translateY(-1px); }
+        .idea-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.1); transform: translateY(-1px); }
 
-        /* ── Pipeline steps ──────────────────────────── */
+        /* ── Pipeline steps ───────────────────────────────────────── */
         .step-dot {
             width: 28px; height: 28px; border-radius: 50%;
-            border: 3px solid #e5e7eb; background: #fff; transition: all .3s;
+            border: 3px solid var(--border); background: var(--surface);
+            transition: all .3s;
         }
         .step-dot.done   { background: #22c55e; border-color: #22c55e; }
-        .step-dot.active { background: #6366f1; border-color: #6366f1; }
-        .step-label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; margin-top: .3rem; color: #9ca3af; }
-        .step-label.done, .step-label.active { color: #374151; }
-        .step-conn { flex: 1; height: 3px; background: #e5e7eb; margin-bottom: 1.3rem; min-width: 40px; transition: background .3s; }
+        .step-dot.active { background: var(--accent); border-color: var(--accent); }
+        .step-label { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin-top: .3rem; color: var(--text-3); }
+        .step-label.done, .step-label.active { color: var(--text-2); }
+        .step-conn { flex: 1; height: 3px; background: var(--border); margin-bottom: 1.3rem; min-width: 40px; transition: background .3s; }
         .step-conn.done { background: #22c55e; }
 
-        /* ── Misc ────────────────────────────────────── */
+        /* ── Misc ─────────────────────────────────────────────────── */
         .review-stars { color: #f59e0b; }
-        pre.spec-block { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: .85rem; margin: 0; }
-        .table th { font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; }
+        pre.spec-block { white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: .825rem; margin: 0; }
+
+        /* ── Buttons ──────────────────────────────────────────────── */
+        .btn { font-size: .825rem; font-weight: 500; border-radius: .4rem; }
+        .btn-sm { font-size: .775rem; }
+        .btn-primary { background: var(--accent); border-color: var(--accent); }
+        .btn-primary:hover, .btn-primary:focus { background: #5457d6; border-color: #5457d6; }
+
+        /* ── Form controls ────────────────────────────────────────── */
+        .form-control, .form-select {
+            font-size: .85rem; border-color: var(--border);
+            border-radius: .4rem;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+        .form-label { font-size: .825rem; font-weight: 600; color: var(--text-2); }
+
+        /* ── Tooltip ──────────────────────────────────────────────── */
+        .tooltip-inner { font-size: .73rem; padding: .3rem .65rem; max-width: 240px; line-height: 1.45; }
     </style>
 </head>
 <body>
 
+<!-- ── Sidebar ─────────────────────────────────────────── -->
 <nav class="sidebar">
-    <div class="sidebar-brand">
-        <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-boxes text-primary" style="font-size:1.4rem;flex-shrink:0"></i>
-            <div>
-                <div class="brand-title">NPD Pipeline</div>
-                <div class="brand-sub">Product Discovery</div>
-            </div>
+    <a href="{% url 'frontend:dashboard' %}" class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <i class="bi bi-boxes text-white" style="font-size:1rem"></i>
         </div>
-    </div>
+        <div>
+            <div class="brand-title">NPD Pipeline</div>
+            <div class="brand-sub">Product Discovery</div>
+        </div>
+    </a>
 
-    <div class="flex-grow-1 overflow-y-auto">
+    <div class="sidebar-nav">
         <div class="sidebar-section">Pipeline</div>
-        <a href="{% url 'frontend:dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'frontend:dashboard' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Pipeline overview &amp; live metrics">
             <i class="bi bi-speedometer2"></i> Dashboard
         </a>
-        <a href="{% url 'frontend:board' %}" class="sidebar-link {% if request.resolver_match.url_name == 'board' %}active{% endif %}">
+        <a href="{% url 'frontend:board' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'board' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Kanban board — move ideas through stages">
             <i class="bi bi-kanban"></i> Task Board
         </a>
 
         <div class="sidebar-section">Tools</div>
-        <a href="{% url 'frontend:score' %}" class="sidebar-link {% if request.resolver_match.url_name == 'score' %}active{% endif %}">
+        <a href="{% url 'frontend:score' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'score' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Enter a keyword to run Tier 1 deterministic scoring">
             <i class="bi bi-stars"></i> Score Idea
         </a>
-        <a href="{% url 'frontend:research' %}" class="sidebar-link {% if request.resolver_match.url_name == 'research' %}active{% endif %}">
+        <a href="{% url 'frontend:research' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'research' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Search Amazon listings for competitor analysis">
             <i class="bi bi-shop"></i> Amazon Research
         </a>
-        <a href="{% url 'frontend:ba-explorer' %}" class="sidebar-link {% if request.resolver_match.url_name == 'ba-explorer' %}active{% endif %}">
+        <a href="{% url 'frontend:ba-explorer' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'ba-explorer' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Browse Brand Analytics search term frequency data">
             <i class="bi bi-bar-chart-line"></i> BA Explorer
+        </a>
+
+        <div class="sidebar-section">Docs</div>
+        <a href="{% url 'frontend:documents' %}"
+           class="sidebar-link {% if request.resolver_match.url_name == 'documents' or request.resolver_match.url_name == 'scoring-guide' %}active{% endif %}"
+           data-bs-toggle="tooltip" data-bs-placement="right" data-bs-container="body"
+           data-bs-title="Scoring guides and pipeline documentation">
+            <i class="bi bi-journal-bookmark"></i> Documents
         </a>
     </div>
 
     <div class="sidebar-footer">
-        <small style="font-size:.7rem; color:rgba(255,255,255,.4)">
-            <i class="bi bi-circle-fill me-1" style="font-size:.45rem;color:#22c55e;vertical-align:middle"></i>
-            API running on port 8000
-        </small>
+        <!-- API status (live) -->
+        <div class="d-flex align-items-center gap-2 mb-2" id="sidebar-api-status"
+             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-container="body"
+             data-bs-title="Checking API…" style="cursor:default">
+            <span id="api-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0;display:inline-block;transition:background .3s"></span>
+            <small id="api-label" style="font-size:.67rem;color:rgba(255,255,255,.28)">API…</small>
+        </div>
+        <!-- MongoDB status (live) -->
+        <div class="d-flex align-items-center gap-2" id="sidebar-db-status"
+             data-bs-toggle="tooltip" data-bs-placement="top" data-bs-container="body"
+             data-bs-title="Checking MongoDB…" style="cursor:default">
+            <span id="db-dot" style="width:7px;height:7px;border-radius:50%;background:#6b7280;flex-shrink:0;display:inline-block;transition:background .3s"></span>
+            <small id="db-label" style="font-size:.67rem;color:rgba(255,255,255,.28)">MongoDB…</small>
+        </div>
     </div>
 </nav>
 
+<!-- ── Main wrapper ─────────────────────────────────────── -->
 <div class="main-wrapper">
     <div class="topbar">
-        <div class="topbar-left">
-            <h6>{% block page_title %}Dashboard{% endblock %}</h6>
-            <small>{% block page_subtitle %}{% endblock %}</small>
+        <div>
+            <div class="topbar-title">{% block page_title %}Dashboard{% endblock %}</div>
+            <div class="topbar-sub">{% block page_subtitle %}{% endblock %}</div>
         </div>
         <div class="d-flex gap-2 align-items-center flex-shrink-0">
             {% block topbar_actions %}{% endblock %}
@@ -156,7 +365,14 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-/* ── Shared API helpers ─────────────────────────────────────────── */
+/* ── Global tooltip init ─────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        new bootstrap.Tooltip(el, { trigger: 'hover' });
+    });
+});
+
+/* ── Shared API helpers ──────────────────────────────────────────── */
 const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
 async function apiGet(url) {
@@ -181,7 +397,7 @@ async function apiPatch(url, data) {
     return r.json();
 }
 
-/* ── Shared rendering helpers ───────────────────────────────────── */
+/* ── Shared rendering helpers ────────────────────────────────────── */
 function scoreBadge(score) {
     if (score == null) return '<span class="score-badge score-below-task">—</span>';
     var cls = score >= 70 ? 'score-eligible' : score >= 55 ? 'score-task' : score >= 45 ? 'score-below-task' : 'score-dismissed';
@@ -192,14 +408,20 @@ function statusBadge(status) {
     var m = { new: 'secondary', scored: 'info', shortlisted: 'primary', pre_sourcing: 'warning', approved: 'success', dismissed: 'danger' };
     var light = (status === 'pre_sourcing' || status === 'scored');
     var label = (status || '').replace(/_/g, ' ');
-    return '<span class="badge bg-' + (m[status] || 'secondary') + (light ? ' text-dark' : '') + ' text-capitalize">' + label + '</span>';
+    return '<span class="badge bg-' + (m[status] || 'secondary') + (light ? ' text-dark' : '') +
+           ' text-capitalize" style="font-size:.69rem;font-weight:600;letter-spacing:.2px">' + label + '</span>';
 }
 
 function flagBadges(flags) {
     if (!flags || !flags.length) return '';
-    var c = { hard_kill: 'danger', no_ba_data: 'secondary', strong_demand: 'success', high_saturation: 'warning text-dark', low_demand: 'danger', score_rescaled_no_ba: 'secondary' };
-    return flags.map(function(f) {
-        return '<span class="badge bg-' + (c[f] || 'secondary') + ' me-1" style="font-size:.68rem">' + f.replace(/_/g, ' ') + '</span>';
+    var c = {
+        hard_kill: 'danger', no_ba_data: 'secondary',
+        strong_demand: 'success', high_saturation: 'warning text-dark',
+        low_demand: 'danger', score_rescaled_no_ba: 'secondary'
+    };
+    return flags.map(function (f) {
+        return '<span class="badge bg-' + (c[f] || 'secondary') + ' me-1" style="font-size:.63rem">' +
+               f.replace(/_/g, ' ') + '</span>';
     }).join('');
 }
 
@@ -219,7 +441,8 @@ function renderStars(rating) {
     if (!rating) return '—';
     var full = Math.floor(rating), half = (rating - full >= 0.4) ? 1 : 0;
     var empty = Math.max(0, 5 - full - half);
-    return '<span class="review-stars">' + '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty) + '</span> <small class="text-muted">' + rating.toFixed(1) + '</small>';
+    return '<span class="review-stars">' + '★'.repeat(full) + (half ? '½' : '') +
+           '☆'.repeat(empty) + '</span> <small class="text-muted">' + rating.toFixed(1) + '</small>';
 }
 
 function scoreBarColor(score) {
@@ -235,16 +458,84 @@ function showToast(msg, type) {
     el.className = 'toast align-items-center text-bg-' + type + ' border-0 position-fixed bottom-0 end-0 m-3';
     el.style.zIndex = 9999;
     el.setAttribute('role', 'alert');
-    el.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg + '</div>' +
+    el.innerHTML = '<div class="d-flex"><div class="toast-body fw-medium" style="font-size:.84rem">' + msg + '</div>' +
         '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
     document.body.appendChild(el);
     new bootstrap.Toast(el, { delay: 3500 }).show();
-    el.addEventListener('hidden.bs.toast', function() { el.remove(); });
+    el.addEventListener('hidden.bs.toast', function () { el.remove(); });
 }
 
 function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+/* Re-init tooltips after dynamic DOM injection */
+function initTooltips(root) {
+    (root || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+        if (!bootstrap.Tooltip.getInstance(el)) new bootstrap.Tooltip(el, { trigger: 'hover' });
+    });
+}
+
+/* ── Sidebar live status (API + MongoDB) ─────────────────────────── */
+(function pollStatus() {
+    var apiDot   = document.getElementById('api-dot');
+    var apiLabel = document.getElementById('api-label');
+    var apiWrap  = document.getElementById('sidebar-api-status');
+    var dbDot    = document.getElementById('db-dot');
+    var dbLabel  = document.getElementById('db-label');
+    var dbWrap   = document.getElementById('sidebar-db-status');
+
+    function setDot(dot, label, wrap, color, glow, text, labelColor, tipText) {
+        dot.style.background = color;
+        dot.style.boxShadow  = glow;
+        label.textContent    = text;
+        label.style.color    = labelColor;
+        var tip = bootstrap.Tooltip.getInstance(wrap);
+        if (tip) tip.setContent({ '.tooltip-inner': tipText });
+    }
+
+    function update() {
+        fetch('/api/db-status/')
+            .then(function (r) {
+                /* API is reachable */
+                setDot(apiDot, apiLabel, apiWrap,
+                    '#22c55e', '0 0 5px rgba(34,197,94,.5)',
+                    'API running · port 8000', 'rgba(255,255,255,.32)',
+                    'Django API responded OK');
+                return r.json();
+            })
+            .then(function (d) {
+                if (d.connected) {
+                    setDot(dbDot, dbLabel, dbWrap,
+                        '#22c55e', '0 0 5px rgba(34,197,94,.5)',
+                        'MongoDB · ' + (d.ideas_count || 0) + ' ideas',
+                        'rgba(255,255,255,.32)',
+                        d.db_name + ' @ ' + d.host);
+                } else {
+                    setDot(dbDot, dbLabel, dbWrap,
+                        '#ef4444', '0 0 5px rgba(239,68,68,.45)',
+                        'MongoDB · error', 'rgba(239,68,68,.75)',
+                        'Connection failed: ' + (d.error || 'unknown'));
+                }
+            })
+            .catch(function () {
+                /* API itself is unreachable */
+                setDot(apiDot, apiLabel, apiWrap,
+                    '#ef4444', '0 0 5px rgba(239,68,68,.45)',
+                    'API · unreachable', 'rgba(239,68,68,.75)',
+                    'Could not reach the Django API');
+                setDot(dbDot, dbLabel, dbWrap,
+                    '#6b7280', 'none',
+                    'MongoDB · unknown', 'rgba(255,255,255,.22)',
+                    'API offline — DB status unavailable');
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        update();
+        setInterval(update, 30000);
+    });
+})();
 </script>
 {% block scripts %}{% endblock %}
 </body>

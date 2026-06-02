@@ -1,0 +1,642 @@
+{% extends 'frontend/base.html' %}
+{% block title %}Scoring Workflow Guide — NPD Pipeline{% endblock %}
+{% block page_title %}Scoring Workflow Guide{% endblock %}
+{% block page_subtitle %}How ideas are evaluated, scored, and routed through the pipeline{% endblock %}
+
+{% block topbar_actions %}
+<a href="{% url 'frontend:documents' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Documents
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+/* ── Doc layout ─────────────────────────────────────── */
+.doc-layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+.doc-toc {
+    width: 220px; flex-shrink: 0;
+    position: sticky; top: 80px;
+}
+.doc-body { flex: 1; min-width: 0; }
+
+/* ── TOC ─────────────────────────────────────────────── */
+.toc-list { list-style: none; padding: 0; margin: 0; }
+.toc-list li a {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .35rem .65rem;
+    font-size: .8rem; color: #6b7280;
+    text-decoration: none; border-radius: 6px;
+    border-left: 2px solid transparent;
+    transition: all .15s;
+}
+.toc-list li a:hover { background: #f1f5f9; color: #374151; }
+.toc-list li a.active { background: #eef2ff; color: #4f46e5; border-left-color: #6366f1; font-weight: 600; }
+.toc-num { font-size: .7rem; font-weight: 700; color: #9ca3af; width: 18px; text-align: right; flex-shrink: 0; }
+
+/* ── Section cards ───────────────────────────────────── */
+.doc-section { margin-bottom: 2.25rem; scroll-margin-top: 90px; }
+.section-title {
+    display: flex; align-items: center; gap: .75rem;
+    margin-bottom: 1rem;
+}
+.section-num {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .8rem; flex-shrink: 0;
+}
+
+/* ── Tables ──────────────────────────────────────────── */
+.doc-table { font-size: .82rem; width: 100%; }
+.doc-table th { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #6b7280; background: #f8fafc; padding: .55rem .75rem; }
+.doc-table td { padding: .55rem .75rem; border-bottom: 1px solid #f1f3f4; vertical-align: top; }
+.doc-table tr:last-child td { border-bottom: none; }
+
+/* ── Formula box ─────────────────────────────────────── */
+.formula { background: #f8f9ff; border: 1px solid #e0e7ff; border-radius: 8px; padding: .85rem 1.1rem; font-family: monospace; font-size: .82rem; line-height: 2; color: #1e2130; }
+
+/* ── Sub-score cards ─────────────────────────────────── */
+.ss-card { border-radius: 10px; border: 1.5px solid #e5e7eb; overflow: hidden; margin-bottom: 1rem; }
+.ss-header { padding: .75rem 1rem; display: flex; align-items: center; gap: .75rem; }
+.ss-body { padding: 1rem; }
+.ss-weight-bar { height: 6px; border-radius: 3px; }
+
+/* ── Kill badges ─────────────────────────────────────── */
+.kill-badge { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 4px; padding: .1rem .5rem; font-size: .75rem; font-weight: 600; }
+.flag-chip { display: inline-block; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 20px; padding: .12rem .55rem; font-size: .72rem; margin: .1rem; color: #475569; }
+
+/* ── Threshold cards ─────────────────────────────────── */
+.threshold-card { border-radius: 10px; padding: 1rem; text-align: center; }
+
+@media (max-width: 900px) {
+    .doc-layout { flex-direction: column; }
+    .doc-toc { width: 100%; position: static; }
+}
+</style>
+
+<div class="doc-layout">
+
+    <!-- ── Sticky TOC ─────────────────────────────────────────── -->
+    <aside class="doc-toc">
+        <div class="card">
+            <div class="card-body p-3">
+                <div class="d-flex align-items-center gap-2 mb-2" style="font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#9ca3af">
+                    <i class="bi bi-list-ul"></i> On this page
+                </div>
+                <ul class="toc-list" id="toc-list">
+                    <li><a href="#overview" class="active"><span class="toc-num">1</span>Pipeline Overview</a></li>
+                    <li><a href="#tier1-steps"><span class="toc-num">2</span>Tier 1 Steps</a></li>
+                    <li><a href="#composite"><span class="toc-num">3</span>Composite Formula</a></li>
+                    <li><a href="#subscores"><span class="toc-num">4</span>The 5 Sub-Scores</a></li>
+                    <li><a href="#thresholds"><span class="toc-num">5</span>Score Thresholds</a></li>
+                    <li><a href="#hardkill"><span class="toc-num">6</span>Hard-Kill Rules</a></li>
+                    <li><a href="#tier2a"><span class="toc-num">7</span>Tier 2A — Reviews</a></li>
+                    <li><a href="#tier2c"><span class="toc-num">8</span>Tier 2C — LLM</a></li>
+                    <li><a href="#tier3"><span class="toc-num">9</span>Tier 3 — Sourcing</a></li>
+                </ul>
+            </div>
+        </div>
+        <!-- Meta -->
+        <div class="card mt-2">
+            <div class="card-body p-3" style="font-size:.75rem;color:#6b7280">
+                <div class="d-flex justify-content-between mb-1"><span>Read time</span><span class="fw-medium text-dark">~15 min</span></div>
+                <div class="d-flex justify-content-between mb-1"><span>Sections</span><span class="fw-medium text-dark">9</span></div>
+                <div class="d-flex justify-content-between"><span>Last updated</span><span class="fw-medium text-dark">Jun 2026</span></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ── Document body ──────────────────────────────────────── -->
+    <div class="doc-body">
+
+        <!-- ══════════════════════════ 1. Overview -->
+        <div class="doc-section" id="overview">
+            <div class="section-title">
+                <span class="section-num" style="background:#eef2ff;color:#6366f1">1</span>
+                <h5 class="mb-0 fw-bold">Pipeline Overview</h5>
+            </div>
+
+            <p class="text-muted mb-3" style="font-size:.9rem;line-height:1.7">
+                Every product idea passes through four evaluation tiers. Each tier gates the next — an idea must pass Tier 1 before Tier 2 runs, and so on. This prevents wasting effort and credits on weak opportunities.
+            </p>
+
+            <!-- Tier flow -->
+            <div class="row g-2 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card border-primary h-100">
+                        <div class="card-body p-3 text-center">
+                            <div class="badge bg-primary mb-2 px-3 py-1">Tier 1</div>
+                            <div class="fw-semibold mb-1" style="font-size:.82rem">Automated Scoring</div>
+                            <div class="text-muted" style="font-size:.73rem">Scrape Amazon + BA → 5 sub-scorers → 0–100 score</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-warning h-100">
+                        <div class="card-body p-3 text-center">
+                            <div class="badge bg-warning text-dark mb-2 px-3 py-1">Tier 2A</div>
+                            <div class="fw-semibold mb-1" style="font-size:.82rem">Review Scraping</div>
+                            <div class="text-muted" style="font-size:.73rem">Scrape competitor reviews. Feeds the LLM.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-info h-100">
+                        <div class="card-body p-3 text-center">
+                            <div class="badge bg-info text-dark mb-2 px-3 py-1">Tier 2C</div>
+                            <div class="fw-semibold mb-1" style="font-size:.82rem">LLM Analysis</div>
+                            <div class="text-muted" style="font-size:.73rem">GPT-4o synthesises evidence → VOC + recommendation</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-success h-100">
+                        <div class="card-body p-3 text-center">
+                            <div class="badge bg-success mb-2 px-3 py-1">Tier 3</div>
+                            <div class="fw-semibold mb-1" style="font-size:.82rem">Pre-Sourcing</div>
+                            <div class="text-muted" style="font-size:.73rem">GPT-4o-mini → listing draft + supplier spec</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status flow -->
+            <div class="card">
+                <div class="card-header"><i class="bi bi-arrow-right-circle text-primary me-1"></i>Status Flow</div>
+                <div class="card-body py-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap" style="font-size:.82rem">
+                        <span class="badge bg-secondary py-2 px-3">new</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-info text-dark py-2 px-3">scored</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-primary py-2 px-3">shortlisted</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-warning text-dark py-2 px-3">pre_sourcing</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-success py-2 px-3">approved</span>
+                    </div>
+                    <div class="mt-2 d-flex align-items-center gap-2 flex-wrap" style="font-size:.8rem">
+                        <span class="text-muted">Any stage can lead to:</span>
+                        <span class="badge bg-danger py-1 px-3">dismissed</span>
+                        <span class="text-muted">(low score or human decision)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 2. Tier 1 Steps -->
+        <div class="doc-section" id="tier1-steps">
+            <div class="section-title">
+                <span class="section-num" style="background:#eef2ff;color:#6366f1">2</span>
+                <h5 class="mb-0 fw-bold">Tier 1 — Step-by-Step</h5>
+            </div>
+            <div class="card">
+                <div class="card-body p-0">
+                    <table class="doc-table">
+                        <thead><tr><th style="width:46px">Step</th><th style="width:180px">Action</th><th>What happens</th><th style="width:110px">Cost</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="badge bg-secondary">1</span></td><td class="fw-medium">Get / Create Idea</td><td class="text-muted">Looks up the keyword in MongoDB. Creates a new record if not found. Returns <code>idea_id</code> used in all subsequent steps.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">2</span></td><td class="fw-medium">Cooldown Check</td><td class="text-muted">If recently dismissed, scoring is blocked until the cooldown expires. Low-score: 7 days. Hard-kill: 30 days. Use <code>force_rescore=true</code> to bypass.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">3</span></td><td class="fw-medium">Already Scored?</td><td class="text-muted">If <code>tier1_done = true</code>, skips entirely unless <code>force_rescore=true</code> is passed.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr style="background:#fef2f2"><td><span class="badge bg-danger">4</span></td><td class="fw-medium text-danger">Fast Hard-Kill</td><td>Checks keyword against 40+ banned category patterns <strong>before any scraping</strong>. If matched, idea is dismissed (score 0) + 30-day cooldown. No credits spent.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">5</span></td><td class="fw-medium">Fetch SERP</td><td class="text-muted">Scrapes Amazon page 1 via ScrapingBee. Parses 16–24 product cards: ASIN, title, price, rating, reviews, badges, sponsored.</td><td><span class="badge bg-warning text-dark" style="font-size:.7rem">1 credit</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">6</span></td><td class="fw-medium">BA Lookup</td><td class="text-muted">Looks up the keyword in the local SQLite Brand Analytics database. Returns Search Frequency Rank + top-clicked ASINs with click share.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">7</span></td><td class="fw-medium">Select ASINs</td><td class="text-muted">Picks up to 4 competitors to deep-scrape. Priority: <strong>(1)</strong> BA top-clicked ASINs, then <strong>(2)</strong> top organic SERP results. De-duplicated.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">8</span></td><td class="fw-medium">Fetch Product Pages</td><td class="text-muted">Scrapes each selected ASIN's full product page. Captures: brand, bullet points, price, rating, review count. Used by Differentiation + Economic scorers.</td><td><span class="badge bg-warning text-dark" style="font-size:.7rem">1 × 4 credits</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">9</span></td><td class="fw-medium">Run Sub-Scorers</td><td class="text-muted">5 pure functions run against all collected evidence. Each returns a 0–100 score, component breakdown, and flag list. No API calls.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">10</span></td><td class="fw-medium">Compute Composite</td><td class="text-muted">5 sub-scores combined with fixed weights into one 0–100 composite. If Fit = 0 (hard-kill), composite is forced to 0 regardless of all other scores.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">11</span></td><td class="fw-medium">Save to MongoDB</td><td class="text-muted">Full evidence snapshot (SERP, competitor details, BA row) + scores + flags written to the idea. Status set to <code>scored</code> or <code>dismissed</code>.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                            <tr><td><span class="badge bg-secondary">12</span></td><td class="fw-medium">Apply Cooldown</td><td class="text-muted">Dismissed by hard-kill → 30-day cooldown. Dismissed by low score → 7-day cooldown. Prevents re-scoring junk ideas on every run.</td><td><span class="badge bg-success bg-opacity-10 text-success border" style="font-size:.7rem">Free</span></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 3. Composite -->
+        <div class="doc-section" id="composite">
+            <div class="section-title">
+                <span class="section-num" style="background:#eef2ff;color:#6366f1">3</span>
+                <h5 class="mb-0 fw-bold">Composite Score Formula</h5>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-calculator text-primary me-1"></i>Formula</div>
+                        <div class="card-body">
+                            <div class="formula">
+                                Score =<br>
+                                &nbsp;&nbsp;(Demand &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <strong>0.35</strong>)<br>
+                                + (Saturation &nbsp;&nbsp;&nbsp;&nbsp;× <strong>0.25</strong>)<br>
+                                + (Differentiation × <strong>0.20</strong>)<br>
+                                + (Fit &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <strong>0.10</strong>)<br>
+                                + (Economic &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;× <strong>0.10</strong>)<br>
+                                → clamped 0–100
+                            </div>
+                            <div class="alert alert-danger mt-3 py-2 mb-0" style="font-size:.82rem">
+                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                <strong>If Fit = 0 → composite forced to 0.</strong> No amount of good demand or economics can save an idea that can't physically be sold.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-bar-chart text-primary me-1"></i>Weights</div>
+                        <div class="card-body">
+                            {% for lbl,w,color in weights %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">{{ lbl }}</span><span class="text-muted" style="font-size:.82rem">{{ w }}%</span></div>
+                                <div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:{{ w }}%;background:{{ color }}"></div></div>
+                            </div>
+                            {% empty %}
+                            {% for row in default_weights %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">{{ row.0 }}</span><span class="text-muted" style="font-size:.82rem">{{ row.1 }}%</span></div>
+                                <div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:{{ row.1 }}%;background:{{ row.2 }}"></div></div>
+                            </div>
+                            {% empty %}
+                            <div class="mb-3"><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">Demand</span><span class="text-muted" style="font-size:.82rem">35%</span></div><div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:35%;background:#6366f1"></div></div></div>
+                            <div class="mb-3"><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">Saturation</span><span class="text-muted" style="font-size:.82rem">25%</span></div><div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:25%;background:#f59e0b"></div></div></div>
+                            <div class="mb-3"><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">Differentiation</span><span class="text-muted" style="font-size:.82rem">20%</span></div><div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:20%;background:#10b981"></div></div></div>
+                            <div class="mb-3"><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">Fit</span><span class="text-muted" style="font-size:.82rem">10%</span></div><div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:10%;background:#ef4444"></div></div></div>
+                            <div><div class="d-flex justify-content-between mb-1"><span style="font-size:.82rem;font-weight:600">Economic Viability</span><span class="text-muted" style="font-size:.82rem">10%</span></div><div style="background:#e9ecef;border-radius:4px;height:7px;overflow:hidden"><div class="ss-weight-bar" style="width:10%;background:#3b82f6"></div></div></div>
+                            {% endfor %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 4. Sub-Scores -->
+        <div class="doc-section" id="subscores">
+            <div class="section-title">
+                <span class="section-num" style="background:#eef2ff;color:#6366f1">4</span>
+                <h5 class="mb-0 fw-bold">The 5 Sub-Scores</h5>
+            </div>
+
+            <!-- Demand -->
+            <div class="ss-card">
+                <div class="ss-header" style="background:#f5f3ff">
+                    <span style="width:36px;height:36px;border-radius:9px;background:#eef2ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-graph-up text-primary"></i></span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2"><span class="fw-bold">Demand</span><span class="badge" style="background:#6366f1;font-size:.7rem">Weight 35%</span></div>
+                        <div class="text-muted" style="font-size:.78rem">How much genuine consumer demand exists for this keyword?</div>
+                    </div>
+                </div>
+                <div class="ss-body">
+                    <table class="doc-table">
+                        <thead><tr><th>Component</th><th style="width:90px">Max pts</th><th>Logic</th></tr></thead>
+                        <tbody>
+                            <tr><td class="fw-medium">BA Search Frequency Rank</td><td>40</td><td class="text-muted">Amazon's own rank data. Rank ≤500 → 40 pts, ≤2k → 34, ≤5k → 28, ≤10k → 22, ≤25k → 15, ≤50k → 9, ≤100k → 4, else → 2. If no BA data, these 40 pts = 0 and others are rescaled to fill 100.</td></tr>
+                            <tr><td class="fw-medium">SERP Organic Depth</td><td>20</td><td class="text-muted">Non-sponsored products on page 1. Formula: <code>min(count / 14, 1) × 20</code>. Dense page = keyword is profitable to rank for.</td></tr>
+                            <tr><td class="fw-medium">Median Review Count</td><td>30</td><td class="text-muted">Median reviews of top 12 SERP products. ≥3000 → 30 pts, ≥1500 → 26, ≥800 → 22, ≥400 → 17, ≥150 → 12, ≥50 → 7, ≥10 → 3.</td></tr>
+                            <tr><td class="fw-medium">Sponsored Ratio</td><td>10</td><td class="text-muted">Sellers only bid on converting keywords. Formula: <code>min(ratio / 0.30, 1) × 10</code>. 30%+ sponsored = high buyer intent.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-2"><span class="flag-chip">🟢 strong_demand (≥75)</span><span class="flag-chip">🔴 weak_demand (&lt;35)</span><span class="flag-chip">⚪ no_ba_data</span><span class="flag-chip">⚪ score_rescaled_no_ba</span></div>
+                </div>
+            </div>
+
+            <!-- Saturation -->
+            <div class="ss-card">
+                <div class="ss-header" style="background:#fffbeb">
+                    <span style="width:36px;height:36px;border-radius:9px;background:#fef9c3;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-shield-check" style="color:#f59e0b"></i></span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2"><span class="fw-bold">Saturation</span><span class="badge" style="background:#f59e0b;color:#000;font-size:.7rem">Weight 25%</span></div>
+                        <div class="text-muted" style="font-size:.78rem">Ease of entry — <strong>higher = easier to enter</strong>. Inverse of competition strength.</div>
+                    </div>
+                </div>
+                <div class="ss-body">
+                    <table class="doc-table">
+                        <thead><tr><th>Component</th><th style="width:90px">Max pts</th><th>Logic</th></tr></thead>
+                        <tbody>
+                            <tr><td class="fw-medium">High-Review Density</td><td>35</td><td class="text-muted">Products with ≥500 reviews = strong incumbents. Formula: <code>(1 − ratio) × 35</code>. If 8 of top 10 organic have &gt;500 reviews → ease score is very low.</td></tr>
+                            <tr><td class="fw-medium">Badge Concentration</td><td>25</td><td class="text-muted">Best Seller + Amazon's Choice badges. Formula: <code>max(0, 1 − badges/5) × 25</code>. 0 badges = 25 pts, 5+ badges = 0 pts.</td></tr>
+                            <tr><td class="fw-medium">BA Click Dominance</td><td>25</td><td class="text-muted">Top ASIN click share from BA. Formula: <code>max(0, 1 − share/0.50) × 25</code>. &gt;50% share = near-monopoly. No BA data → neutral 12.5 pts.</td></tr>
+                            <tr><td class="fw-medium">Price Band Tightness</td><td>15</td><td class="text-muted">Wide range = multiple tiers = room to differentiate. Formula: <code>min(range/median, 1) × 15</code>. Narrow band = commoditised.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-2"><span class="flag-chip">🟢 low_competition (≥70)</span><span class="flag-chip">🔴 high_saturation (≤30)</span></div>
+                </div>
+            </div>
+
+            <!-- Differentiation -->
+            <div class="ss-card">
+                <div class="ss-header" style="background:#f0fdf4">
+                    <span style="width:36px;height:36px;border-radius:9px;background:#dcfce7;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-lightbulb" style="color:#10b981"></i></span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2"><span class="fw-bold">Differentiation</span><span class="badge" style="background:#10b981;font-size:.7rem">Weight 20%</span></div>
+                        <div class="text-muted" style="font-size:.78rem">How much room exists to enter with a meaningfully different product?</div>
+                    </div>
+                </div>
+                <div class="ss-body">
+                    <table class="doc-table">
+                        <thead><tr><th>Component</th><th style="width:90px">Max pts</th><th>Logic</th></tr></thead>
+                        <tbody>
+                            <tr><td class="fw-medium">Price Gap Opportunity</td><td>35</td><td class="text-muted">Wide price spread = multiple value tiers = room for a premium product. Formula: <code>min(gap/1.2, 1) × 35</code> where gap = (max − min) / median.</td></tr>
+                            <tr><td class="fw-medium">Rating Ceiling Gap</td><td>30</td><td class="text-muted">If even the best product scores &lt;4.3★, buyers are unsatisfied. Best rating: &lt;3.5 → 30 pts, &lt;4.0 → 25 pts, &lt;4.3 → 20 pts, &lt;4.6 → 12 pts, ≥4.6 → 5 pts.</td></tr>
+                            <tr><td class="fw-medium">Brand Diversity</td><td>20</td><td class="text-muted">Many brands on page 1 = no loyalty moat. Formula: <code>(unique / total) × 20</code>. One dominant brand = harder to break in.</td></tr>
+                            <tr><td class="fw-medium">Feature Whitespace</td><td>15</td><td class="text-muted">Vocabulary richness of competitor bullet points. <code>min(unique_keywords / 200, 1) × 15</code>. Clustered features → unmet needs exist.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-2"><span class="flag-chip">🟢 strong_differentiation_opportunity (≥70)</span><span class="flag-chip">🔴 commoditised_market (≤25)</span><span class="flag-chip">⚪ low_avg_rating_opportunity</span></div>
+                </div>
+            </div>
+
+            <!-- Fit -->
+            <div class="ss-card">
+                <div class="ss-header" style="background:#fef2f2">
+                    <span style="width:36px;height:36px;border-radius:9px;background:#fee2e2;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-check-circle" style="color:#ef4444"></i></span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2"><span class="fw-bold">Fit</span><span class="badge bg-danger" style="font-size:.7rem">Weight 10%</span></div>
+                        <div class="text-muted" style="font-size:.78rem">Does this idea fit our operational constraints? <strong>Score = 0 forces the composite to 0.</strong></div>
+                    </div>
+                </div>
+                <div class="ss-body">
+                    <table class="doc-table">
+                        <thead><tr><th>Check / Component</th><th style="width:90px">Max pts</th><th>Logic</th></tr></thead>
+                        <tbody>
+                            <tr style="background:#fef2f2"><td><span class="kill-badge">KILL</span> Keyword pattern</td><td>Instant 0</td><td>Matches 40+ regex patterns before scraping. Food, books, alcohol, firearms, pharma, digital, live animals → dismissed + 30-day cooldown.</td></tr>
+                            <tr style="background:#fef2f2"><td><span class="kill-badge">KILL</span> SERP title pattern</td><td>Instant 0</td><td>≥60% of top-10 titles match non-physical-product patterns (cookbook, paperback, magazine) → killed even if keyword is clean.</td></tr>
+                            <tr style="background:#fef2f2"><td><span class="kill-badge">KILL</span> Price too low</td><td>Instant 0</td><td>Median organic price &lt;$15. At this level, fees eat all margin. No FBA business is viable below $15.</td></tr>
+                            <tr><td class="fw-medium">Price Viability</td><td>50</td><td class="text-muted">Price ≥ $15 × 1.3 = 50 pts. $15–$19.50 = 20 pts (marginal). No price data = 25 pts (neutral).</td></tr>
+                            <tr><td class="fw-medium">Price Ceiling</td><td>20</td><td class="text-muted">Price &gt;$80 = 10 pts (sourcing complexity penalty). Otherwise 20 pts.</td></tr>
+                            <tr><td class="fw-medium">FBA Category Signal</td><td>30</td><td class="text-muted">Keyword contains FBA-friendly signals (kitchen, home, travel, pet, yoga…). 2+ hits → 30 pts, 1 → 20 pts, 0 → 10 pts.</td></tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-2"><span class="flag-chip">🔴 hard_kill</span><span class="flag-chip">🔴 price_too_low</span><span class="flag-chip">🟡 price_marginal</span><span class="flag-chip">🟢 strong_category_fit</span><span class="flag-chip">⚪ wrong_product_type</span></div>
+                </div>
+            </div>
+
+            <!-- Economic -->
+            <div class="ss-card">
+                <div class="ss-header" style="background:#eff6ff">
+                    <span style="width:36px;height:36px;border-radius:9px;background:#dbeafe;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="bi bi-currency-dollar" style="color:#3b82f6"></i></span>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2"><span class="fw-bold">Economic Viability</span><span class="badge" style="background:#3b82f6;font-size:.7rem">Weight 10%</span></div>
+                        <div class="text-muted" style="font-size:.78rem">Are the unit economics viable for Amazon FBA? Modelled from median SERP price.</div>
+                    </div>
+                </div>
+                <div class="ss-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <div class="fw-semibold mb-2" style="font-size:.82rem">Profit Per Unit (max 60 pts)</div>
+                            <div class="formula" style="font-size:.78rem">
+                                Net = Price<br>
+                                &nbsp;− (Price × 15%) &nbsp;← Amazon referral<br>
+                                &nbsp;− $4.50 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;← FBA fee<br>
+                                &nbsp;− (Price × 33%) &nbsp;← COGS target<br><br>
+                                &lt;$5 → 0 pts &nbsp;&nbsp; &lt;$7.50 → 20 pts<br>
+                                &lt;$12.50 → 40 pts &nbsp;&lt;$20 → 55 pts<br>
+                                ≥$20 → 60 pts
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="fw-semibold mb-2" style="font-size:.82rem">Monthly Revenue Opportunity (max 40 pts)</div>
+                            <div class="formula" style="font-size:.78rem">
+                                Units/mo ≈ Σ(reviews × 0.05)<br>
+                                Revenue = units × median_price<br><br>
+                                &lt;$3k/mo &nbsp;&nbsp;→ 0 pts<br>
+                                &lt;$9k/mo &nbsp;&nbsp;→ 15 pts<br>
+                                &lt;$24k/mo → 28 pts<br>
+                                ≥$24k/mo → 40 pts
+                            </div>
+                        </div>
+                    </div>
+                    <div><span class="flag-chip">🟢 strong_economics (≥70)</span><span class="flag-chip">🔴 poor_economics (≤20)</span><span class="flag-chip">🔴 below_min_profit</span><span class="flag-chip">🟡 marginal_profit</span><span class="flag-chip">🔴 low_revenue_opportunity</span></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 5. Thresholds -->
+        <div class="doc-section" id="thresholds">
+            <div class="section-title">
+                <span class="section-num" style="background:#eef2ff;color:#6366f1">5</span>
+                <h5 class="mb-0 fw-bold">Score Thresholds</h5>
+            </div>
+            <div class="row g-3">
+                <div class="col-6 col-md-3"><div class="threshold-card" style="background:#fef2f2;border:1.5px solid #fecaca"><div class="fw-bold text-danger" style="font-size:2rem;line-height:1.1">0–44</div><div class="badge bg-danger mb-2">Dismissed</div><div class="text-muted" style="font-size:.78rem">Below minimum. 7-day cooldown applied. No board card.</div></div></div>
+                <div class="col-6 col-md-3"><div class="threshold-card" style="background:#f8fafc;border:1.5px solid #e2e8f0"><div class="fw-bold text-secondary" style="font-size:2rem;line-height:1.1">45–54</div><div class="badge bg-secondary mb-2">Scored Weak</div><div class="text-muted" style="font-size:.78rem">Passes minimum. Status = scored. Visible in history. No board card.</div></div></div>
+                <div class="col-6 col-md-3"><div class="threshold-card" style="background:#eff8ff;border:1.5px solid #bfdbfe"><div class="fw-bold text-info" style="font-size:2rem;line-height:1.1">55–69</div><div class="badge bg-info text-dark mb-2">Scored</div><div class="text-muted" style="font-size:.78rem">Above task threshold. Board card created. Enters human review.</div></div></div>
+                <div class="col-6 col-md-3"><div class="threshold-card" style="background:#f0fdf4;border:1.5px solid #bbf7d0"><div class="fw-bold text-success" style="font-size:2rem;line-height:1.1">70+</div><div class="badge bg-success mb-2">High Potential</div><div class="text-muted" style="font-size:.78rem"><code>eligible_for_tier15 = true</code>. External enrichment unlocked.</div></div></div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 6. Hard-Kill -->
+        <div class="doc-section" id="hardkill">
+            <div class="section-title">
+                <span class="section-num" style="background:#fef2f2;color:#dc2626">6</span>
+                <h5 class="mb-0 fw-bold">Hard-Kill Rules</h5>
+            </div>
+            <p class="text-muted mb-3" style="font-size:.9rem">Instantly dismiss an idea with score 0 + 30-day cooldown. Checked <strong>before any scraping</strong> to avoid wasting credits.</p>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header text-danger"><i class="bi bi-x-circle me-1"></i>Keyword Patterns (40+)</div>
+                        <div class="card-body" style="font-size:.8rem;line-height:2">
+                            <div><span class="kill-badge">Digital/Media</span> book, kindle, dvd, music, software, gift card</div>
+                            <div><span class="kill-badge">Food & Bev</span> food, snack, coffee, tea, supplement, vitamin</div>
+                            <div><span class="kill-badge">Medical</span> prescription, pharmaceutical, FDA approved</div>
+                            <div><span class="kill-badge">Restricted</span> tobacco, vape, alcohol, wine, firearm, gun, ammo</div>
+                            <div><span class="kill-badge">Logistics</span> live animal, live plant, live fish</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header text-danger"><i class="bi bi-x-circle me-1"></i>SERP Title Check</div>
+                        <div class="card-body">
+                            <p class="text-muted" style="font-size:.82rem">Triggered when <strong>≥60% of top-10 SERP titles</strong> match:</p>
+                            <div style="font-size:.8rem;line-height:2">
+                                <div><span class="kill-badge">cookbook, recipe</span></div>
+                                <div><span class="kill-badge">paperback, hardcover</span></div>
+                                <div><span class="kill-badge">magazine, newspaper</span></div>
+                            </div>
+                            <p class="text-muted mt-2" style="font-size:.78rem">Example: "travel journal" passes keyword check but SERP is all notebooks → killed here.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-header text-danger"><i class="bi bi-x-circle me-1"></i>Price Floor ($15)</div>
+                        <div class="card-body">
+                            <div class="formula mb-2" style="font-size:.78rem">
+                                At $10 selling price:<br>
+                                − Amazon fee: $1.50<br>
+                                − FBA fee: &nbsp;&nbsp;$4.50<br>
+                                − COGS: &nbsp;&nbsp;&nbsp;&nbsp;$3.30<br>
+                                = Net: <strong style="color:#dc2626">$0.70/unit</strong>
+                            </div>
+                            <p class="text-muted mb-0" style="font-size:.78rem">No private label FBA business is viable below $15. The price check kills the idea immediately.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 7. Tier 2A -->
+        <div class="doc-section" id="tier2a">
+            <div class="section-title">
+                <span class="section-num" style="background:#fffbeb;color:#d97706">7</span>
+                <h5 class="mb-0 fw-bold">Tier 2A — Review Scraping</h5>
+            </div>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-info-circle text-warning me-1"></i>Prerequisites & Cost</div>
+                        <div class="card-body" style="font-size:.875rem">
+                            <ul class="text-muted ps-3 mb-3">
+                                <li>Idea must be in <code>shortlisted</code> status</li>
+                                <li>Tier 1 must have run (competitor ASINs needed)</li>
+                            </ul>
+                            <div class="formula" style="font-size:.78rem">
+                                Max credits:<br>
+                                3 ASINs × 3 pages = <strong>9 credits</strong><br><br>
+                                Each page ≈ 10 reviews<br>
+                                Max reviews: ≈ 90 per run
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-chat-left-text text-warning me-1"></i>What Reviews Enable</div>
+                        <div class="card-body">
+                            <div class="row g-2">
+                                <div class="col-6"><div class="card bg-light border-0 p-2" style="font-size:.78rem"><strong><i class="bi bi-emoji-frown me-1 text-danger"></i>Pain Points</strong><div class="text-muted">Specific recurring buyer complaints</div></div></div>
+                                <div class="col-6"><div class="card bg-light border-0 p-2" style="font-size:.78rem"><strong><i class="bi bi-exclamation-octagon me-1 text-danger"></i>Dealbreakers</strong><div class="text-muted">Reasons for returns / 1-star reviews</div></div></div>
+                                <div class="col-6"><div class="card bg-light border-0 p-2" style="font-size:.78rem"><strong><i class="bi bi-person me-1 text-primary"></i>Buyer Avatar</strong><div class="text-muted">Who buys it and how they use it</div></div></div>
+                                <div class="col-6"><div class="card bg-light border-0 p-2" style="font-size:.78rem"><strong><i class="bi bi-lightbulb me-1 text-warning"></i>Feature Gaps</strong><div class="text-muted">Wants no existing product delivers</div></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 8. Tier 2C -->
+        <div class="doc-section" id="tier2c">
+            <div class="section-title">
+                <span class="section-num" style="background:#e0f2fe;color:#0284c7">8</span>
+                <h5 class="mb-0 fw-bold">Tier 2C — LLM Analysis (GPT-4o)</h5>
+            </div>
+            <p class="text-muted mb-3" style="font-size:.9rem">GPT-4o synthesises all collected evidence into a structured report. It <strong>never invents data</strong> — it only analyses what Tier 1 and Tier 2A collected.</p>
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-inbox text-info me-1"></i>Inputs to GPT-4o</div>
+                        <div class="card-body">
+                            <ul class="text-muted mb-0 ps-3" style="font-size:.82rem;line-height:2">
+                                <li>SERP products (titles, prices, ratings, reviews)</li>
+                                <li>Competitor detail pages (bullet points, brands)</li>
+                                <li>Brand Analytics rank + click share</li>
+                                <li>Customer reviews (if Tier 2A ran)</li>
+                                <li>Tier 1 scores + score breakdown</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-7">
+                    <div class="card h-100">
+                        <div class="card-header"><i class="bi bi-file-earmark-text text-info me-1"></i>Structured Outputs</div>
+                        <div class="card-body">
+                            <div class="row g-1" style="font-size:.78rem">
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>voc_summary</code><div class="text-muted">Voice of customer (3–5 sentences)</div></div></div>
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>pain_points</code><div class="text-muted">Specific recurring complaints</div></div></div>
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>dealbreakers</code><div class="text-muted">Return reasons / 1-star causes</div></div></div>
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>buyer_avatar</code><div class="text-muted">Who buys and who uses it</div></div></div>
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>feature_blueprint</code><div class="text-muted">Recommended features vs pain points</div></div></div>
+                                <div class="col-6"><div class="p-2 rounded bg-light mb-1"><code>recommendation</code><div class="text-muted"><span class="badge bg-success">Go</span> / <span class="badge bg-danger">No-go</span> / <span class="badge bg-warning text-dark">Conditional</span></div></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══════════════════════════ 9. Tier 3 -->
+        <div class="doc-section" id="tier3">
+            <div class="section-title">
+                <span class="section-num" style="background:#f0fdf4;color:#16a34a">9</span>
+                <h5 class="mb-0 fw-bold">Tier 3 — Pre-Sourcing (GPT-4o-mini)</h5>
+            </div>
+            <p class="text-muted mb-3" style="font-size:.9rem">Three sequential LLM calls produce actionable documents for manufacturer outreach.</p>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body p-3">
+                            <div class="badge bg-primary mb-2">Call 1</div>
+                            <div class="fw-semibold mb-1" style="font-size:.875rem">Product Concept + Buyer Poll</div>
+                            <ul class="text-muted mb-0 ps-3" style="font-size:.78rem;line-height:1.9">
+                                <li>Precise product definition</li>
+                                <li>Simulated buyer test vs. top competitor</li>
+                                <li>Win/lose verdict with reasoning</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body p-3">
+                            <div class="badge bg-success mb-2">Call 2</div>
+                            <div class="fw-semibold mb-1" style="font-size:.875rem">Amazon Listing Draft</div>
+                            <ul class="text-muted mb-0 ps-3" style="font-size:.78rem;line-height:1.9">
+                                <li>Keyword-first title (200 chars)</li>
+                                <li>5 benefit-led bullet points</li>
+                                <li>Tagline + image shot list</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100">
+                        <div class="card-body p-3">
+                            <div class="badge bg-warning text-dark mb-2">Call 3</div>
+                            <div class="fw-semibold mb-1" style="font-size:.875rem">Manufacturer Sourcing Spec</div>
+                            <ul class="text-muted mb-0 ps-3" style="font-size:.78rem;line-height:1.9">
+                                <li>Materials, dimensions, packaging</li>
+                                <li>MOQ / quote volumes</li>
+                                <li>Alibaba search terms</li>
+                                <li>Lead-time estimates</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.doc-body -->
+</div><!-- /.doc-layout -->
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+var sections = document.querySelectorAll('.doc-section[id]');
+var tocLinks = document.querySelectorAll('#toc-list a');
+
+function updateToc() {
+    var atBottom = (window.scrollY + window.innerHeight) >= (document.documentElement.scrollHeight - 80);
+    var current = '';
+
+    if (atBottom) {
+        current = sections[sections.length - 1].getAttribute('id');
+    } else {
+        // Use 60% of viewport as detection point so sections visible in the
+        // upper half of the screen are correctly highlighted
+        var scrollY = window.scrollY + Math.floor(window.innerHeight * 0.60);
+        sections.forEach(function(sec) {
+            if (sec.offsetTop <= scrollY) current = sec.getAttribute('id');
+        });
+    }
+
+    tocLinks.forEach(function(link) {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+    });
+}
+
+window.addEventListener('scroll', updateToc, { passive: true });
+updateToc();
+</script>
+{% endblock %}

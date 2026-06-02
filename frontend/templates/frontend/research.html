@@ -140,7 +140,7 @@ async function showDetail(asin) {
                 ? '<div class="mb-3"><div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:.3rem">Key Features</div>' +
                   '<ul style="font-size:.8rem;padding-left:1.1rem">' + p.bullet_points.slice(0, 4).map(function(b) { return '<li class="mb-1">' + esc(b) + '</li>'; }).join('') + '</ul></div>'
                 : '') +
-            '<a href="/score/" class="btn btn-success btn-sm w-100 mt-1" id="score-link">' +
+            '<a href="/score/?kw=' + encodeURIComponent(kw || asin) + '" class="btn btn-success btn-sm w-100 mt-1" id="score-link">' +
                 '<i class="bi bi-stars me-1"></i>Score "' + esc(kw || asin) + '"' +
             '</a>' +
             '</div>';

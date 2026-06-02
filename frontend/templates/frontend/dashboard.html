@@ -4,111 +4,185 @@
 {% block page_subtitle %}Pipeline health at a glance{% endblock %}
 
 {% block topbar_actions %}
-<a href="{% url 'frontend:score' %}" class="btn btn-primary btn-sm">
+<a href="{% url 'frontend:score' %}" class="btn btn-primary btn-sm"
+   data-bs-toggle="tooltip" data-bs-title="Start Tier 1 scoring for a new keyword idea">
     <i class="bi bi-plus-lg me-1"></i>Score New Idea
 </a>
 {% endblock %}
 
 {% block content %}
-<!-- Status metric cards -->
+
+<!-- ── Pipeline Status Metrics ──────────────────────────── -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-circle text-secondary"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">New</span>
-            </div>
-            <div class="fw-bold lh-1" style="font-size:2rem" id="count-new">—</div>
+        <div class="stat-card st-new"
+             data-bs-toggle="tooltip" data-bs-title="Ideas submitted but not yet scored">
+            <i class="bi bi-circle stat-icon"></i>
+            <div class="stat-num text-secondary" id="count-new">—</div>
+            <div class="stat-label">New</div>
         </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-info bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-check2-circle text-info"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Scored</span>
-            </div>
-            <div class="fw-bold lh-1 text-info" style="font-size:2rem" id="count-scored">—</div>
+        <div class="stat-card st-scored"
+             data-bs-toggle="tooltip" data-bs-title="Ideas that have completed Tier 1 scoring (score 45–54)">
+            <i class="bi bi-check2-circle stat-icon" style="color:#06b6d4"></i>
+            <div class="stat-num" style="color:#0891b2" id="count-scored">—</div>
+            <div class="stat-label">Scored</div>
         </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-bookmark-star text-primary"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Shortlisted</span>
-            </div>
-            <div class="fw-bold lh-1 text-primary" style="font-size:2rem" id="count-shortlisted">—</div>
+        <div class="stat-card st-short"
+             data-bs-toggle="tooltip" data-bs-title="High-potential ideas shortlisted for deeper review (score 55+)">
+            <i class="bi bi-bookmark-star stat-icon text-primary"></i>
+            <div class="stat-num text-primary" id="count-shortlisted">—</div>
+            <div class="stat-label">Shortlisted</div>
         </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-warning bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-file-earmark-text text-warning"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Pre-Sourcing</span>
-            </div>
-            <div class="fw-bold lh-1 text-warning" style="font-size:2rem" id="count-pre_sourcing">—</div>
+        <div class="stat-card st-pre"
+             data-bs-toggle="tooltip" data-bs-title="Approved ideas entering the sourcing &amp; validation phase">
+            <i class="bi bi-file-earmark-text stat-icon text-warning"></i>
+            <div class="stat-num text-warning" id="count-pre_sourcing">—</div>
+            <div class="stat-label">Pre-Sourcing</div>
         </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-trophy text-success"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Approved</span>
-            </div>
-            <div class="fw-bold lh-1 text-success" style="font-size:2rem" id="count-approved">—</div>
+        <div class="stat-card st-appr"
+             data-bs-toggle="tooltip" data-bs-title="Ideas fully approved and ready for product launch">
+            <i class="bi bi-trophy stat-icon text-success"></i>
+            <div class="stat-num text-success" id="count-approved">—</div>
+            <div class="stat-label">Approved</div>
         </div>
     </div>
     <div class="col-6 col-md-4 col-lg-2">
-        <div class="card p-3 h-100">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="rounded-circle bg-danger bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;flex-shrink:0">
-                    <i class="bi bi-x-circle text-danger"></i>
-                </span>
-                <span class="text-muted" style="font-size:.72rem;text-transform:uppercase;font-weight:600;letter-spacing:.5px">Dismissed</span>
-            </div>
-            <div class="fw-bold lh-1 text-danger" style="font-size:2rem" id="count-dismissed">—</div>
+        <div class="stat-card st-dism"
+             data-bs-toggle="tooltip" data-bs-title="Ideas dismissed — low score (&lt;45) or hard-kill flags triggered">
+            <i class="bi bi-x-circle stat-icon text-danger"></i>
+            <div class="stat-num text-danger" id="count-dismissed">—</div>
+            <div class="stat-label">Dismissed</div>
         </div>
     </div>
 </div>
 
-<!-- BA Status + Recent Activity -->
+<!-- ── Quick Actions ─────────────────────────────────────── -->
+<div class="mb-4">
+    <div class="d-flex align-items-center gap-2 mb-2 ps-1">
+        <i class="bi bi-lightning-charge-fill text-warning" style="font-size:.8rem"></i>
+        <span style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-3)">Quick Actions</span>
+    </div>
+    <div class="row g-2">
+        <div class="col-12 col-sm-6 col-md-3">
+            <a href="{% url 'frontend:score' %}" class="shortcut-card"
+               data-bs-toggle="tooltip"
+               data-bs-title="Enter a keyword and run the 5-factor Tier 1 scoring pipeline (Demand · Saturation · Differentiation · Fit · Economics)">
+                <span class="shortcut-icon bg-primary bg-opacity-10">
+                    <i class="bi bi-stars text-primary"></i>
+                </span>
+                <div>
+                    <div class="shortcut-title">Score Idea</div>
+                    <div class="shortcut-desc">Run Tier 1 scoring</div>
+                </div>
+                <i class="bi bi-chevron-right shortcut-arrow"></i>
+            </a>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <a href="{% url 'frontend:research' %}" class="shortcut-card"
+               data-bs-toggle="tooltip"
+               data-bs-title="Search Amazon product listings and scrape review data for competitor analysis">
+                <span class="shortcut-icon" style="background:rgba(34,197,94,.1)">
+                    <i class="bi bi-shop text-success"></i>
+                </span>
+                <div>
+                    <div class="shortcut-title">Amazon Research</div>
+                    <div class="shortcut-desc">Search competitor products</div>
+                </div>
+                <i class="bi bi-chevron-right shortcut-arrow"></i>
+            </a>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <a href="{% url 'frontend:board' %}" class="shortcut-card"
+               data-bs-toggle="tooltip"
+               data-bs-title="View the Kanban board and move ideas across pipeline stages">
+                <span class="shortcut-icon" style="background:rgba(245,158,11,.1)">
+                    <i class="bi bi-kanban text-warning"></i>
+                </span>
+                <div>
+                    <div class="shortcut-title">Task Board</div>
+                    <div class="shortcut-desc">Manage pipeline stages</div>
+                </div>
+                <i class="bi bi-chevron-right shortcut-arrow"></i>
+            </a>
+        </div>
+        <div class="col-12 col-sm-6 col-md-3">
+            <a href="{% url 'frontend:ba-explorer' %}" class="shortcut-card"
+               data-bs-toggle="tooltip"
+               data-bs-title="Explore Brand Analytics search term frequency, rank, and click share data">
+                <span class="shortcut-icon" style="background:rgba(6,182,212,.1)">
+                    <i class="bi bi-bar-chart-line" style="color:#0891b2"></i>
+                </span>
+                <div>
+                    <div class="shortcut-title">BA Explorer</div>
+                    <div class="shortcut-desc">Browse search analytics</div>
+                </div>
+                <i class="bi bi-chevron-right shortcut-arrow"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- ── BA Status + Recent Activity ──────────────────────── -->
 <div class="row g-3">
+
+    <!-- BA Status card -->
     <div class="col-lg-4">
         <div class="card h-100">
-            <div class="card-header d-flex"><i class="bi bi-database text-primary"></i> Brand Analytics Index</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-database text-primary"></i>
+                    <span>Brand Analytics Index</span>
+                </div>
+                <span data-bs-toggle="tooltip" style="cursor:help"
+                      data-bs-title="Status of the BA search term database. Run ingest_brand_analytics to refresh.">
+                    <i class="bi bi-info-circle text-muted" style="font-size:.82rem"></i>
+                </span>
+            </div>
             <div class="card-body" id="ba-status-body">
-                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-secondary"></div></div>
+                <div class="text-center py-4">
+                    <div class="spinner-border spinner-border-sm text-secondary"></div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Recent Activity -->
     <div class="col-lg-8">
         <div class="card h-100">
-            <div class="card-header d-flex"><i class="bi bi-clock-history text-primary"></i> Recent Activity</div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-clock-history text-primary"></i>
+                    <span>Recent Activity</span>
+                </div>
+                <span class="badge bg-light text-secondary border" style="font-size:.68rem;font-weight:600">Last 12 ideas</span>
+            </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover table-sm mb-0 align-middle">
-                        <thead class="table-light">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
                             <tr>
-                                <th class="ps-3">Keyword</th>
-                                <th>Score</th>
-                                <th>Status</th>
+                                <th class="ps-3" style="min-width:160px">Keyword</th>
+                                <th style="width:70px">Score</th>
+                                <th style="width:110px">Status</th>
                                 <th>Flags</th>
-                                <th class="pe-3">Updated</th>
+                                <th style="width:90px;white-space:nowrap">Updated</th>
+                                <th class="pe-3" style="width:70px"></th>
                             </tr>
                         </thead>
                         <tbody id="recent-tbody">
-                            <tr><td colspan="5" class="text-center py-4">
-                                <div class="spinner-border spinner-border-sm text-secondary"></div>
-                            </td></tr>
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="spinner-border spinner-border-sm text-secondary"></div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -116,66 +190,169 @@
         </div>
     </div>
 </div>
+
+<!-- ── Delete Confirmation Modal ─────────────────────────── -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:380px">
+        <div class="modal-content" style="border-radius:.6rem;border:1px solid var(--border)">
+            <div class="modal-header border-0 pb-0 pt-3 px-4">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="d-flex align-items-center justify-content-center rounded-circle bg-danger bg-opacity-10"
+                          style="width:34px;height:34px;flex-shrink:0">
+                        <i class="bi bi-trash text-danger" style="font-size:.88rem"></i>
+                    </span>
+                    <h6 class="modal-title mb-0 fw-700" id="deleteModalLabel" style="font-size:.95rem">Delete Idea</h6>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-3">
+                <p class="text-muted mb-1" style="font-size:.8rem">You are about to permanently delete:</p>
+                <p class="fw-semibold mb-3" id="delete-modal-keyword" style="font-size:.9rem;word-break:break-word"></p>
+                <div class="d-flex align-items-start gap-2 rounded p-2 px-3"
+                     style="background:#fef9c3;border:1px solid #fde68a;font-size:.78rem;color:#92400e">
+                    <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1" style="font-size:.8rem;color:#d97706"></i>
+                    <span>This action <strong>cannot be undone</strong>. All scoring data for this idea will be lost.</span>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0 pb-3 px-4 gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm px-3"
+                        data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm px-3" id="delete-modal-confirm">
+                    <i class="bi bi-trash me-1"></i>Delete permanently
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
 async function loadDashboard() {
-    var statuses = ['new', 'scored', 'shortlisted', 'pre_sourcing', 'approved', 'dismissed'];
-    statuses.forEach(function(s) {
-        apiGet('/api/ideas/?status=' + s).then(function(d) {
-            document.getElementById('count-' + s).textContent = d.count;
-        }).catch(function() {
-            document.getElementById('count-' + s).textContent = '!';
+    /* Pipeline status counts */
+    ['new', 'scored', 'shortlisted', 'pre_sourcing', 'approved', 'dismissed'].forEach(function (s) {
+        apiGet('/api/ideas/?status=' + s).then(function (d) {
+            var el = document.getElementById('count-' + s);
+            if (el) el.textContent = d.count;
+        }).catch(function () {
+            var el = document.getElementById('count-' + s);
+            if (el) el.textContent = '—';
         });
     });
 
-    // BA Status
-    apiGet('/api/brand-analytics/status/').then(function(ba) {
+    /* BA Status */
+    apiGet('/api/brand-analytics/status/').then(function (ba) {
         var el = document.getElementById('ba-status-body');
         if (ba.total_terms > 0) {
-            var periods = (ba.report_dates || []).map(function(d) {
-                return '<span class="badge bg-light text-dark border me-1">' + d + '</span>';
+            var periods = (ba.report_dates || []).map(function (d) {
+                return '<span class="badge bg-light text-dark border me-1" style="font-size:.7rem">' + d + '</span>';
             }).join('');
-            var lastIng = ba.last_ingestion ? (
-                '<div class="small text-muted mt-2"><i class="bi bi-arrow-repeat me-1"></i>Last: ' +
-                relativeTime(ba.last_ingestion.completed_at) + ' &mdash; ' +
-                (ba.last_ingestion.rows_inserted || 0).toLocaleString() + ' rows</div>'
-            ) : '';
-            el.innerHTML = '<div class="mb-2"><span class="badge bg-success">Connected</span></div>' +
-                '<div class="mb-1"><strong style="font-size:1.4rem">' + ba.total_terms.toLocaleString() + '</strong> <span class="text-muted small">terms indexed</span></div>' +
-                '<div class="mb-1">' + periods + '</div>' + lastIng;
+            var lastIng = ba.last_ingestion
+                ? '<div class="d-flex align-items-center gap-2 mt-3 pt-3 border-top">' +
+                  '<i class="bi bi-arrow-repeat text-muted" style="font-size:.82rem"></i>' +
+                  '<small class="text-muted" style="font-size:.75rem">Last sync: <strong>' +
+                  relativeTime(ba.last_ingestion.completed_at) + '</strong> &mdash; ' +
+                  (ba.last_ingestion.rows_inserted || 0).toLocaleString() + ' rows</small></div>'
+                : '';
+            el.innerHTML =
+                '<div class="d-flex align-items-center gap-2 mb-3">' +
+                '<span class="d-inline-flex align-items-center gap-1 badge" ' +
+                'style="background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;font-size:.73rem;font-weight:600">' +
+                '<span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block"></span>Connected</span>' +
+                '</div>' +
+                '<div class="mb-1"><span style="font-size:2rem;font-weight:800;letter-spacing:-1px;line-height:1;color:var(--text-1)">' +
+                ba.total_terms.toLocaleString() + '</span></div>' +
+                '<div class="text-muted mb-3" style="font-size:.75rem">search terms indexed</div>' +
+                '<div>' + periods + '</div>' + lastIng;
         } else {
-            el.innerHTML = '<span class="badge bg-danger">No Data</span>' +
-                '<p class="text-muted small mt-2 mb-0">Run <code>python manage.py ingest_brand_analytics</code> to populate.</p>';
+            el.innerHTML =
+                '<div class="text-center py-2">' +
+                '<span class="badge mb-2" style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;font-size:.73rem">' +
+                '<span style="width:6px;height:6px;border-radius:50%;background:#ef4444;display:inline-block;margin-right:4px"></span>No Data</span>' +
+                '<p class="text-muted mb-0" style="font-size:.78rem">Run <code class="bg-light px-1 py-0 rounded" style="font-size:.75rem">python manage.py ingest_brand_analytics</code> to populate.</p>' +
+                '</div>';
         }
-    }).catch(function() {
-        document.getElementById('ba-status-body').innerHTML = '<span class="badge bg-secondary">Unavailable</span>';
+        initTooltips(el);
+    }).catch(function () {
+        var el = document.getElementById('ba-status-body');
+        if (el) el.innerHTML = '<span class="badge bg-secondary-subtle text-secondary border">Unavailable</span>';
     });
 
-    // Recent ideas
-    apiGet('/api/ideas/').then(function(data) {
-        var ideas = (data.ideas || []).sort(function(a, b) {
+    /* Recent ideas */
+    apiGet('/api/ideas/').then(function (data) {
+        var ideas = (data.ideas || []).sort(function (a, b) {
             return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         }).slice(0, 12);
         var tbody = document.getElementById('recent-tbody');
         if (!ideas.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No ideas yet. <a href="/score/">Score your first idea →</a></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4" style="font-size:.82rem">' +
+                'No ideas yet. <a href="/score/" class="text-primary fw-medium">Score your first idea →</a></td></tr>';
             return;
         }
-        tbody.innerHTML = ideas.map(function(idea) {
+        tbody.innerHTML = ideas.map(function (idea) {
+            var kw = encodeURIComponent(idea.keyword || '');
             return '<tr>' +
-                '<td class="ps-3"><a href="/ideas/' + esc(idea.idea_id) + '/" class="text-decoration-none fw-medium">' + esc(idea.keyword || '') + '</a></td>' +
+                '<td class="ps-3">' +
+                    '<a href="/ideas/' + esc(idea.idea_id) + '/" class="text-decoration-none fw-semibold text-dark" ' +
+                    'style="font-size:.82rem">' + esc(idea.keyword || '') + '</a>' +
+                '</td>' +
                 '<td>' + scoreBadge(idea.tier1_score) + '</td>' +
                 '<td>' + statusBadge(idea.status) + '</td>' +
-                '<td>' + flagBadges(idea.flags) + '</td>' +
-                '<td class="pe-3 text-muted small">' + relativeTime(idea.updated_at) + '</td>' +
+                '<td style="max-width:180px">' + flagBadges(idea.flags) + '</td>' +
+                '<td class="text-muted" style="font-size:.74rem;white-space:nowrap">' + relativeTime(idea.updated_at) + '</td>' +
+                '<td class="pe-3">' +
+                    '<div class="d-flex gap-1 justify-content-end">' +
+                        '<a href="/score/?kw=' + kw + '" ' +
+                           'class="btn btn-outline-primary btn-sm py-0 px-2" ' +
+                           'data-bs-toggle="tooltip" data-bs-title="Re-score this idea">' +
+                           '<i class="bi bi-stars" style="font-size:.72rem"></i></a>' +
+                        '<button class="btn btn-outline-danger btn-sm py-0 px-2" ' +
+                           'data-bs-toggle="tooltip" data-bs-title="Delete this idea permanently" ' +
+                           'onclick="deleteIdea(event,\'' + esc(idea.idea_id) + '\',\'' + esc(idea.keyword || '') + '\')">' +
+                           '<i class="bi bi-trash" style="font-size:.72rem"></i></button>' +
+                    '</div>' +
+                '</td>' +
                 '</tr>';
         }).join('');
-    }).catch(function() {
-        document.getElementById('recent-tbody').innerHTML = '<tr><td colspan="5" class="text-center text-danger small py-3">Failed to load ideas</td></tr>';
+        initTooltips(tbody);
+    }).catch(function () {
+        var tbody = document.getElementById('recent-tbody');
+        if (tbody) tbody.innerHTML =
+            '<tr><td colspan="6" class="text-center text-danger py-3" style="font-size:.8rem">' +
+            '<i class="bi bi-exclamation-circle me-1"></i>Failed to load ideas</td></tr>';
     });
 }
+
+var _deleteTarget = null;
+
+function deleteIdea(ev, ideaId, keyword) {
+    ev.preventDefault(); ev.stopPropagation();
+    _deleteTarget = { ideaId: ideaId, keyword: keyword };
+    document.getElementById('delete-modal-keyword').textContent = '"' + keyword + '"';
+    var btn = document.getElementById('delete-modal-confirm');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-trash me-1"></i>Delete permanently';
+    new bootstrap.Modal(document.getElementById('deleteModal')).show();
+}
+
+document.getElementById('delete-modal-confirm').addEventListener('click', async function () {
+    if (!_deleteTarget) return;
+    var { ideaId, keyword } = _deleteTarget;
+    this.disabled = true;
+    this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Deleting…';
+    try {
+        await fetch('/api/ideas/' + ideaId + '/delete/', { method: 'DELETE' });
+        bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+        showToast('"' + keyword + '" deleted', 'success');
+        loadDashboard();
+    } catch (e) {
+        showToast('Delete failed', 'danger');
+        this.disabled = false;
+        this.innerHTML = '<i class="bi bi-trash me-1"></i>Delete permanently';
+    }
+    _deleteTarget = null;
+});
 
 document.addEventListener('DOMContentLoaded', loadDashboard);
 </script>
