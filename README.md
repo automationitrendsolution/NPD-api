@@ -1,6 +1,6 @@
 # NPD API — Complete Documentation
 
-**New Product Discovery pipeline API built with Django 6 + Django REST Framework.**
+**New Product Discovery pipeline API built with Django 6 + Django REST Framework + MongoDB.**
 
 Automates the discovery, validation, and pre-sourcing of Amazon FBA product ideas from raw keyword signals all the way through to a manufacturer-ready sourcing specification.
 
@@ -11,6 +11,8 @@ Automates the discovery, validation, and pre-sourcing of Amazon FBA product idea
 1. [Project Overview](#1-project-overview)
 2. [Architecture & Pipeline Flow](#2-architecture--pipeline-flow)
 3. [Setup & Installation](#3-setup--installation)
+   - [Option A — Docker (recommended)](#option-a--docker-recommended)
+   - [Option B — Local development](#option-b--local-development)
 4. [Environment Variables](#4-environment-variables)
 5. [API Endpoints](#5-api-endpoints)
    - [Amazon Scraping](#51-amazon-scraping)
@@ -38,13 +40,14 @@ The NPD system is a product discovery and validation pipeline. It takes a produc
 - Human approval is required at two gates before expensive work runs
 
 **Tech stack:**
-- Django 6.0.5
+- Django 6.0.5 (no ORM — no SQL database)
 - Django REST Framework 3.17.1
+- **MongoDB 7.0** (primary database — ideas, brand analytics, ingestion logs)
+- **pymongo 4.17.0** (MongoDB driver)
 - OpenAI API (`gpt-4o` + `gpt-4o-mini`)
 - ScrapingBee API (Amazon SERP, product detail, reviews)
 - Amazon SP-API (Brand Analytics reports)
-- SQLite (Brand Analytics keyword index)
-- NDJSON file (idea memory store)
+- Docker + Docker Compose (containerised deployment)
 
 ---
 
@@ -79,39 +82,106 @@ Sourcing begins outside NPD
 | 55–69 | Scored + task board entry created |
 | 70+ | Eligible for Tier 1.5 external enrichment |
 
+### MongoDB collections
+
+| Collection | Contents |
+|---|---|
+| `ideas` | All product idea records (one document per idea) |
+| `ba_search_terms` | Brand Analytics keyword rows from Amazon SP-API reports |
+| `ba_ingestion_log` | Audit trail of Brand Analytics ingestion runs |
+
 ---
 
 ## 3. Setup & Installation
 
-### Prerequisites
-- Python 3.11+
-- Virtual environment (included at `venv/`)
-- ScrapingBee API key (pre-configured)
-- OpenAI API key (required for Tier 2C + Tier 3)
+### Option A — Docker (recommended)
 
-### Activate environment and run server
+The fastest way to run the full stack with zero local Python setup required.
+
+**Prerequisites:** Docker Desktop installed and running.
 
 ```bash
+# 1. Clone the repo and enter the directory
+cd NPD-api
+
+# 2. Copy the example env file and fill in your API keys
+#    (SCRAPINGBEE_API_KEY and OPENAI_API_KEY are required)
+#    MongoDB credentials are pre-configured in docker-compose.yml
+
+# 3. Start everything
+docker compose up -d
+
+# 4. Verify both containers are healthy
+docker compose ps
+```
+
+**Expected output:**
+```
+NAME          IMAGE         STATUS
+npd_mongodb   mongo:7.0     Up (healthy)
+npd_web       npd-api-web   Up
+```
+
+The API is available at `http://localhost:8000`.
+MongoDB is available at `localhost:27017`.
+
+**Container management:**
+
+```bash
+# Start
+docker compose up -d
+
+# Stop (keeps MongoDB data)
+docker compose down
+
+# Stop + delete all data
+docker compose down -v
+
+# View Django logs
+docker compose logs -f web
+
+# View MongoDB logs
+docker compose logs -f mongodb
+
+# Rebuild after code changes
+docker compose build && docker compose up -d
+
+# Open a shell inside the web container
+docker exec -it npd_web sh
+
+# Connect to MongoDB directly
+docker exec -it npd_mongodb mongosh \
+  "mongodb://npduser:npdpassword@localhost:27017/npd_db?authSource=admin"
+```
+
+---
+
+### Option B — Local development
+
+**Prerequisites:**
+- Python 3.11+
+- MongoDB 7.0 running locally on port 27017 (no auth required for local dev)
+
+```bash
+# 1. Activate the virtual environment
 # Windows
 venv\Scripts\activate
-python manage.py runserver
 
-# or directly
-venv/Scripts/python.exe manage.py runserver
-```
+# 2. Install dependencies
+pip install -r requirements.txt
 
-### Create data directory
-
-```bash
+# 3. Create the data directory
 mkdir data
+
+# 4. Run the dev server
+python manage.py runserver
 ```
 
-The pipeline auto-creates `data/ideas.ndjson` and `data/brand_analytics.sqlite3` on first use.
+The `.env` file ships with `MONGO_URI=mongodb://localhost:27017/npd_db` so local MongoDB (without authentication) works out of the box.
 
-### Run system check
-
+**Run system check:**
 ```bash
-venv/Scripts/python.exe manage.py check
+python manage.py check
 ```
 
 ---
@@ -121,13 +191,19 @@ venv/Scripts/python.exe manage.py check
 All secrets are stored in `.env` at the project root. The file is loaded by each module independently using `_load_dotenv()`.
 
 ```env
+# ── MongoDB ───────────────────────────────────────────────────────────────────
+# Local dev: unauthenticated localhost (default below)
+# Docker: overridden automatically by docker-compose.yml
+MONGO_URI=mongodb://localhost:27017/npd_db
+MONGO_DB=npd_db
+
 # ── ScrapingBee (Amazon scraping) ─────────────────────────────────────────────
 SCRAPINGBEE_API_KEY=your_key_here
 
 # ── OpenAI (Tier 2C analysis + Tier 3 generation) ─────────────────────────────
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o           # Tier 2C — complex synthesis
-OPENAI_MODEL_FAST=gpt-4o-mini # Tier 3 — structured generation (cheaper)
+OPENAI_MODEL=gpt-4o
+OPENAI_MODEL_FAST=gpt-4o-mini
 
 # ── Amazon SP-API (Brand Analytics ingestion) ─────────────────────────────────
 SP_API_CLIENT_ID=
@@ -140,6 +216,8 @@ AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_REGION=us-east-1
 ```
+
+> **Note:** `MONGO_URI` and `MONGO_DB` are automatically overridden by `docker-compose.yml` when running in Docker. The local values are only used for direct `python manage.py runserver` runs.
 
 > Only `SCRAPINGBEE_API_KEY` is required to run the Amazon search, product detail, and review scraping endpoints. The others are only needed for their respective features.
 
@@ -246,7 +324,7 @@ GET /api/amazon-product/?asin=B09XKPZL7Q
 
 ### 5.2 Idea Memory
 
-The idea memory store is the system's source of truth for all pipeline state. Every idea has a unique `idea_id` (UUID) and a `status` that tracks where it is in the pipeline.
+The idea memory store is the system's source of truth for all pipeline state. Every idea is a MongoDB document in the `ideas` collection with a unique `idea_id` (UUID) and a `status` that tracks where it is in the pipeline.
 
 **Valid statuses:** `new` → `scored` → `shortlisted` → `pre_sourcing` → `approved` / `dismissed`
 
@@ -254,7 +332,7 @@ The idea memory store is the system's source of truth for all pipeline state. Ev
 
 #### POST `/api/ideas/create/` — Create Idea
 
-Creates a new blank idea record.
+Creates a new blank idea document in MongoDB.
 
 **Request body:**
 ```json
@@ -297,7 +375,7 @@ Creates a new blank idea record.
 
 #### GET `/api/ideas/` — List Ideas
 
-Returns all ideas with optional filters.
+Returns all ideas with optional filters (queries MongoDB `ideas` collection).
 
 **Query parameters (all optional):**
 
@@ -333,7 +411,7 @@ GET /api/ideas/?status=shortlisted&min_tier1_score=60
 
 #### GET `/api/ideas/<idea_id>/` — Get One Idea
 
-Returns the full record for a single idea.
+Returns the full MongoDB document for a single idea.
 
 **Request:**
 ```
@@ -374,11 +452,6 @@ Updates any field(s) on an existing idea. Dict fields are merged (not replaced).
 { "status": "dismissed" }
 ```
 
-**To add a note:**
-```json
-{ "concept": "Updated product description after research" }
-```
-
 **Protected fields** (cannot be updated via API):
 `idea_id`, `created_at`, `keyword`
 
@@ -388,7 +461,7 @@ Updates any field(s) on an existing idea. Dict fields are merged (not replaced).
 
 ### 5.3 Brand Analytics
 
-Brand Analytics data is ingested weekly from Amazon SP-API into a local SQLite index. These endpoints query that index.
+Brand Analytics data is ingested from Amazon SP-API into the MongoDB `ba_search_terms` collection. These endpoints query that collection.
 
 ---
 
@@ -480,13 +553,11 @@ GET /api/brand-analytics/status/
 **Response:**
 ```json
 {
-    "db_path": "/path/to/data/brand_analytics.sqlite3",
     "total_terms": 48231,
     "report_dates": ["2026-05", "2026-04"],
     "last_ingestion": {
         "report_date": "2026-05",
         "rows_inserted": 48231,
-        "duration_seconds": 47.3,
         "completed_at": "2026-05-30T08:12:00+00:00"
     }
 }
@@ -522,16 +593,16 @@ Runs the full deterministic market scan and scoring pipeline for one keyword.
 ```
 
 **What Tier 1 does internally:**
-1. Creates or loads the idea record
+1. Creates or loads the idea document from MongoDB
 2. Checks cooldown (skips if on cooldown)
 3. Checks if already scored (skips unless `force_rescore=true`)
 4. Applies hard-kill keyword rules (instant dismiss, no scraping)
 5. Fetches the Amazon SERP (1 scraping credit)
-6. Looks up the keyword in Brand Analytics SQLite index
+6. Looks up the keyword in MongoDB `ba_search_terms` collection
 7. Fetches product detail pages for top 4 competitor ASINs (1 credit each)
 8. Runs all 5 sub-scorers
 9. Computes weighted composite score
-10. Saves everything to idea memory
+10. Saves everything to MongoDB `ideas` collection
 11. Applies cooldown if score < 45
 
 **Response (scored):**
@@ -547,22 +618,6 @@ Runs the full deterministic market scan and scoring pipeline for one keyword.
         "differentiation": 75,
         "fit": 100,
         "economic_viability": 70
-    },
-    "score_breakdown": {
-        "demand": {
-            "score": 80,
-            "components": {
-                "ba_rank_pts": 34,
-                "organic_depth_pts": 16,
-                "review_median_pts": 22,
-                "sponsored_ratio_pts": 8
-            },
-            "flags": []
-        },
-        "saturation": { ... },
-        "differentiation": { ... },
-        "fit": { ... },
-        "economic_viability": { ... }
     },
     "flags": ["strong_demand"],
     "eligible_for_tier15": true,
@@ -583,23 +638,13 @@ Runs the full deterministic market scan and scoring pipeline for one keyword.
 }
 ```
 
-**Response (skipped — on cooldown):**
-```json
-{
-    "status": "skipped",
-    "idea_id": "...",
-    "keyword": "bamboo travel mug",
-    "skip_reason": "Idea is on cooldown until 2026-06-08T10:00:00+00:00"
-}
-```
-
 ---
 
 ### 5.5 Tier 2A — Review Scraping
 
 Scrapes Amazon customer reviews for the competitor products of a shortlisted idea.
 
-**Prerequisite:** The idea must have `status = "shortlisted"` (set manually via the update endpoint). Tier 1 scoring must have run first so competitor ASINs are known.
+**Prerequisite:** The idea must have `status = "shortlisted"`.
 
 #### POST `/api/reviews/scrape/` — Scrape Reviews
 
@@ -608,26 +653,9 @@ Scrapes Amazon customer reviews for the competitor products of a shortlisted ide
 | Field | Required | Description |
 |---|---|---|
 | `idea_id` | Yes | UUID of the shortlisted idea |
-| `max_pages` | No | Review pages per ASIN, 1–10 (default: `3`, ~30 reviews per ASIN) |
+| `max_pages` | No | Review pages per ASIN, 1–10 (default: `3`) |
 | `max_asins` | No | Competitor ASINs to scrape, 1–5 (default: `3`) |
 | `force` | No | Re-scrape if already done (default: `false`) |
-
-**Request:**
-```json
-{
-    "idea_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "max_pages": 3,
-    "max_asins": 3
-}
-```
-
-**What this does internally:**
-1. Loads idea, checks status is `shortlisted`
-2. Reads competitor ASINs from `tier1_evidence.competitor_asins`
-3. For each ASIN: fetches up to `max_pages` review pages via ScrapingBee
-4. Parses review text, rating, date, verified status, helpful votes
-5. Saves raw reviews verbatim to `review_data.review_pages`
-6. Sets `reviews_scraped = true`
 
 **Response (complete):**
 ```json
@@ -637,23 +665,7 @@ Scrapes Amazon customer reviews for the competitor products of a shortlisted ide
     "keyword": "bamboo travel mug",
     "asins_scraped": ["B09XKPZL7Q", "B08MXYZ123", "B07ABCD456"],
     "total_reviews": 82,
-    "review_counts": {
-        "B09XKPZL7Q": 30,
-        "B08MXYZ123": 28,
-        "B07ABCD456": 24
-    },
-    "duration_seconds": 42.1,
-    "warnings": []
-}
-```
-
-**Response (skipped — wrong status):**
-```json
-{
-    "status": "skipped",
-    "idea_id": "...",
-    "keyword": "bamboo travel mug",
-    "skip_reason": "Idea status is 'scored'. Review scraping requires one of: shortlisted, pre_sourcing, approved."
+    "duration_seconds": 42.1
 }
 ```
 
@@ -661,7 +673,7 @@ Scrapes Amazon customer reviews for the competitor products of a shortlisted ide
 
 ### 5.6 Tier 2C — LLM Analysis
 
-Runs GPT-4o synthesis of all evidence collected so far. Produces a structured customer insight and recommendation report.
+Runs GPT-4o synthesis of all evidence. Produces a structured customer insight and recommendation report.
 
 **Prerequisite:** `tier1_done = true`. Quality improves significantly if `reviews_scraped = true` first.
 
@@ -674,22 +686,6 @@ Runs GPT-4o synthesis of all evidence collected so far. Produces a structured cu
 | `idea_id` | Yes | UUID of the idea |
 | `force` | No | Re-run if already done (default: `false`) |
 
-**Request:**
-```json
-{
-    "idea_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-}
-```
-
-**What GPT-4o analyses:**
-- Top 8 SERP products (titles, prices, ratings, review counts)
-- Brand Analytics rank and top-clicked competitors
-- Competitor detail pages (bullets, features, brand)
-- Up to 40 customer reviews (verbatim text)
-- Research report (if available)
-
-**The LLM is instructed to only draw conclusions from provided evidence. It must never invent market data.**
-
 **Response (complete):**
 ```json
 {
@@ -698,35 +694,15 @@ Runs GPT-4o synthesis of all evidence collected so far. Produces a structured cu
     "keyword": "bamboo travel mug",
     "recommendation": "Go",
     "analysis": {
-        "voc_summary": "Buyers overwhelmingly prioritise leak-proof seals and genuine eco credentials. The current market leaders have strong brand recognition but consistently disappoint on lid quality and bamboo durability.",
-        "pain_points": [
-            "Lids crack or leak after 2–3 months",
-            "Bamboo coating peels off",
-            "Too wide to fit standard cup holders"
-        ],
-        "dealbreakers": [
-            "Any leaking at all",
-            "Smell from bamboo material"
-        ],
-        "usage_scenarios": [
-            "Daily commute — needs to fit in car cup holder",
-            "Office desk use — spill-proof when knocked over",
-            "Hiking — lightweight and durable"
-        ],
-        "buyer_motivations": [
-            "Reducing single-use plastic",
-            "Gifting for eco-conscious family members"
-        ],
-        "end_user_avatar": "25–40 year old urban professional who cycles or takes public transport to work. Values sustainability but not at the cost of functionality.",
-        "buyer_avatar": "Same as end user in 70% of cases. Gift buyers are typically parents or partners buying for eco-conscious household members.",
+        "voc_summary": "...",
+        "pain_points": ["Lids crack after 2–3 months", "Bamboo coating peels"],
+        "dealbreakers": ["Any leaking at all"],
         "feature_blueprint": [
-            { "feature": "360° leak-proof twist lid", "reason": "Top complaint across all reviewed products", "priority": "critical" },
-            { "feature": "Slim 2.8\" base diameter", "reason": "Cup holder compatibility mentioned in 34% of reviews", "priority": "high" },
-            { "feature": "Reinforced bamboo composite", "reason": "Peeling/cracking mentioned in 28% of 1-star reviews", "priority": "high" }
+            { "feature": "360° leak-proof lid", "reason": "Top complaint", "priority": "critical" }
         ],
-        "differentiation_strategy": "Enter at $27–32 price point with a lifetime lid warranty and cup-holder guarantee (exact dimensions on packaging). This directly attacks the two biggest failure modes of the current leaders.",
+        "differentiation_strategy": "...",
         "recommendation": "Go",
-        "recommendation_reasoning": "Proven demand (BA rank 1423), clear whitespace on durability and fit, price band supports $5+ profit per unit at $29 retail. Reviews confirm buyers are actively switching products due to lid failures — the problem is real and unsolved."
+        "recommendation_reasoning": "..."
     },
     "duration_seconds": 18.4
 }
@@ -738,7 +714,7 @@ Runs GPT-4o synthesis of all evidence collected so far. Produces a structured cu
 
 Generates all pre-sourcing documents using GPT-4o-mini (3 separate LLM calls).
 
-**Prerequisite:** Human must set `status = "pre_sourcing"` via the update endpoint.
+**Prerequisite:** Human must set `status = "pre_sourcing"`.
 
 #### POST `/api/presource/` — Run Tier 3 Generation
 
@@ -749,21 +725,6 @@ Generates all pre-sourcing documents using GPT-4o-mini (3 separate LLM calls).
 | `idea_id` | Yes | UUID of the idea |
 | `force` | No | Re-run if already done (default: `false`) |
 
-**Request:**
-```json
-{
-    "idea_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-}
-```
-
-**The 3 LLM calls:**
-
-| Call | Purpose |
-|---|---|
-| Call 1 | Product concept + simulated buyer preference poll vs market leader |
-| Call 2 | Amazon listing — title, 5 bullets, tagline, image shot list |
-| Call 3 | Manufacturer sourcing spec — materials, dimensions, compliance, MOQ, Alibaba terms |
-
 **Response (complete):**
 ```json
 {
@@ -771,41 +732,15 @@ Generates all pre-sourcing documents using GPT-4o-mini (3 separate LLM calls).
     "idea_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "keyword": "bamboo travel mug",
     "presourcing_data": {
-        "product_concept": "A 16oz double-wall bamboo fibre travel mug with a 360° twist-lock leak-proof lid (2.8\" base diameter for universal cup holder fit), reinforced inner liner, and a lifetime lid replacement guarantee.",
-        "buyer_poll_setup": "Would you choose Product A (our concept) or Product B (EcoSip Bamboo Mug, 4.3★, 1847 reviews)?",
-        "our_product_description": "360° twist-lock lid with lifetime guarantee, 2.8\" base fits all cup holders, reinforced bamboo composite — won't peel.",
-        "competitor_description": "EcoSip Bamboo Mug — eco-friendly, popular, but reviewers report lid cracking and peeling bamboo coating.",
-        "poll_winner": "our_product",
-        "poll_reasoning": "Our product directly solves the two most-cited failure modes in reviews. The lifetime lid warranty eliminates the top purchase objection.",
-        "poll_score": "8/10 simulated buyers chose our product",
-        "listing_title": "Bamboo Travel Mug 16oz — 360° Leak-Proof Lid, Cup Holder Fit, Lifetime Lid Guarantee — Eco Friendly Double Wall Insulated Coffee Mug",
-        "bullet_points": [
-            "LIFETIME LID GUARANTEE — Our 360° twist-lock lid is engineered to never crack or leak. If it ever does, we replace it free. Forever.",
-            "UNIVERSAL CUP HOLDER FIT — Precision 2.8\" base diameter fits every standard car, bike, and desk cup holder. No more balancing acts.",
-            "REINFORCED BAMBOO COMPOSITE — Triple-layer bamboo fibre construction resists peeling and cracking for years of daily use.",
-            "STAYS HOT 6 HOURS, COLD 12 — Double-wall vacuum insulation locks in temperature without the bulk of stainless steel.",
-            "GENUINELY ECO FRIENDLY — Made from natural bamboo fibre, BPA-free lid, FSC-certified packaging. Better for the planet without the trade-offs."
-        ],
+        "listing_title": "Bamboo Travel Mug 16oz — 360° Leak-Proof Lid...",
+        "bullet_points": ["LIFETIME LID GUARANTEE — ...", "..."],
         "tagline": "The mug that fixes everything you hate about bamboo mugs.",
         "image_shot_list": [
-            "Hero: mug on white background, lid open showing 360° mechanism, 3/4 angle",
-            "Lifestyle: mug in car cup holder — driver's hand on wheel, morning commute",
-            "Technical: cross-section diagram showing double-wall construction and lid lock",
-            "Scale: mug next to standard travel mug showing slim profile",
-            "Infographic: 3 icons — Leak-Proof / Cup Holder Fit / Lifetime Guarantee"
+            { "shot": "Hero shot", "description": "Mug on white background", "purpose": "Main listing image" }
         ],
-        "materials_spec": "Outer shell: natural bamboo fibre composite (70% bamboo, 30% food-grade PP resin). Inner liner: food-grade 304 stainless steel. Lid: BPA-free Tritan plastic with silicone gasket seal.",
-        "dimensions_assumptions": "Height: 185mm. Base diameter: 71mm (2.8\"). Opening diameter: 80mm. Capacity: 480ml / 16oz. Weight target: <320g.",
-        "packaging_notes": "Kraft paper box with recycled inner sleeve. Retail-ready. Include lid guarantee card. Outer carton: 12 units. Master carton: 48 units.",
-        "compliance_notes": "FDA food contact compliance required for US market. California Prop 65 warning if applicable. LFGB for EU. No BPA, phthalates, or heavy metals certification.",
-        "quote_volume_assumptions": "Request quotes at 500 / 1000 / 3000 units. Target landed COGS ≤ $8.25 at 1000 units MOQ.",
-        "supplier_search_terms": [
-            "bamboo fibre travel mug manufacturer",
-            "eco travel mug custom OEM",
-            "bamboo coffee mug double wall insulated",
-            "bamboo fiber reusable cup factory"
-        ],
-        "lead_time_assumptions": "Sample: 15–20 days. Production at 1000 units: 30–45 days. Sea freight to US: 25–35 days. Total pipeline: 70–100 days from PO to FBA."
+        "materials_spec": "Outer: bamboo fibre composite. Inner: 304 stainless steel.",
+        "supplier_search_terms": ["bamboo fibre travel mug manufacturer", "..."],
+        "lead_time_assumptions": "Sample: 15–20 days. Production: 30–45 days."
     },
     "duration_seconds": 31.6
 }
@@ -815,10 +750,16 @@ Generates all pre-sourcing documents using GPT-4o-mini (3 separate LLM calls).
 
 ## 6. CLI Management Commands
 
-All commands are run with the project's virtual environment Python:
+All commands can be run inside Docker or with the local virtual environment.
 
+**Inside Docker:**
 ```bash
-venv/Scripts/python.exe manage.py <command> [options]
+docker exec npd_web python manage.py <command> [options]
+```
+
+**Local dev:**
+```bash
+venv\Scripts\python.exe manage.py <command> [options]
 ```
 
 ---
@@ -832,7 +773,7 @@ python manage.py ingest_brand_analytics
 # Specific date range
 python manage.py ingest_brand_analytics --start-date 2026-05-01 --end-date 2026-05-31
 
-# Dry run — validate credentials without writing to DB
+# Dry run — validate credentials without writing to MongoDB
 python manage.py ingest_brand_analytics --dry-run
 ```
 
@@ -841,7 +782,7 @@ python manage.py ingest_brand_analytics --dry-run
 | `--start-date` | Report period start (YYYY-MM-DD) |
 | `--end-date` | Report period end (YYYY-MM-DD) |
 | `--period` | `WEEK` or `MONTH` (default: `MONTH`) |
-| `--label` | Report date label stored in DB e.g. `2026-05` |
+| `--label` | Report date label stored in MongoDB e.g. `2026-05` |
 | `--dry-run` | Authenticate and request report but do not save |
 
 ---
@@ -849,19 +790,10 @@ python manage.py ingest_brand_analytics --dry-run
 ### Tier 1 Scoring
 
 ```bash
-# Score a new keyword
 python manage.py score_idea --keyword "bamboo travel mug"
-
-# Score with concept
 python manage.py score_idea --keyword "bamboo travel mug" --concept "Eco commuter mug"
-
-# Score an existing idea by ID
 python manage.py score_idea --idea-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
-
-# Force re-score
 python manage.py score_idea --keyword "bamboo travel mug" --force
-
-# Output as JSON
 python manage.py score_idea --keyword "bamboo travel mug" --json
 ```
 
@@ -870,20 +802,10 @@ python manage.py score_idea --keyword "bamboo travel mug" --json
 ### Tier 2A — Review Scraping
 
 ```bash
-# Scrape one idea (must be shortlisted)
 python manage.py scrape_reviews --idea-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
-
-# Scrape all pending shortlisted ideas
 python manage.py scrape_reviews --all-pending
-
-# More pages for deeper corpus
 python manage.py scrape_reviews --idea-id <uuid> --max-pages 5 --max-asins 4
-
-# Force re-scrape
 python manage.py scrape_reviews --idea-id <uuid> --force
-
-# JSON output
-python manage.py scrape_reviews --all-pending --json
 ```
 
 | Option | Default | Description |
@@ -893,23 +815,15 @@ python manage.py scrape_reviews --all-pending --json
 | `--max-pages` | `3` | Review pages per ASIN (~10 reviews each) |
 | `--max-asins` | `3` | Competitor ASINs to scrape |
 | `--force` | `false` | Re-scrape if already done |
-| `--json` | `false` | Print result as JSON |
 
 ---
 
 ### Tier 2C — LLM Analysis
 
 ```bash
-# Analyse one idea
 python manage.py run_tier2c --idea-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
-
-# Analyse all shortlisted ideas with tier1_done=True
 python manage.py run_tier2c --all-pending
-
-# Force re-analyse
 python manage.py run_tier2c --idea-id <uuid> --force
-
-# JSON output
 python manage.py run_tier2c --idea-id <uuid> --json
 ```
 
@@ -918,13 +832,8 @@ python manage.py run_tier2c --idea-id <uuid> --json
 ### Tier 3 — Pre-Sourcing
 
 ```bash
-# Generate pre-sourcing docs for one idea
 python manage.py run_tier3 --idea-id a1b2c3d4-e5f6-7890-abcd-ef1234567890
-
-# Generate for all ideas in pre_sourcing status
 python manage.py run_tier3 --all-pending
-
-# Force regenerate
 python manage.py run_tier3 --idea-id <uuid> --force
 ```
 
@@ -932,7 +841,7 @@ python manage.py run_tier3 --idea-id <uuid> --force
 
 ## 7. Idea Record Schema
 
-Every idea stored in `data/ideas.ndjson` has this exact structure.
+Every idea is stored as a MongoDB document in the `ideas` collection with this structure.
 
 ```json
 {
@@ -1067,19 +976,15 @@ composite = (demand × 0.35) + (saturation × 0.25) + (differentiation × 0.20)
 ### Sub-score breakdown
 
 #### Demand (0–100)
-Measures how much genuine search volume and buyer intent exists.
 
 | Component | Max pts | Source |
 |---|---|---|
-| BA search frequency rank | 40 | Brand Analytics SQLite |
+| BA search frequency rank | 40 | MongoDB `ba_search_terms` |
 | Organic SERP result depth | 20 | Amazon SERP |
 | Median competitor review count | 30 | Amazon SERP |
 | Sponsored ad ratio (inverse) | 10 | Amazon SERP |
 
-If no Brand Analytics data exists for the keyword, the remaining 3 components are rescaled to fill 100 points and a `no_ba_data` flag is added.
-
 #### Saturation (0–100)
-Measures ease of entry — higher score means easier to enter.
 
 | Component | Max pts | What it measures |
 |---|---|---|
@@ -1089,7 +994,6 @@ Measures ease of entry — higher score means easier to enter.
 | Price band tightness | 15 | Wider band = more room to position |
 
 #### Differentiation (0–100)
-Measures whether a gap exists to exploit.
 
 | Component | Max pts | What it measures |
 |---|---|---|
@@ -1099,18 +1003,16 @@ Measures whether a gap exists to exploit.
 | Feature whitespace from bullets | 15 | Gaps in competitor feature coverage |
 
 #### Fit (0–100)
-Measures whether this idea is viable to source and sell via FBA.
 
 | Check | Points | Rule |
 |---|---|---|
 | Hard-kill keyword | 0 (instant) | Matches HARD_KILL_KEYWORD_PATTERNS |
-| Hard-kill SERP titles | 0 (instant) | ≥60% of top-10 titles match HARD_KILL_TITLE_PATTERNS |
+| Hard-kill SERP titles | 0 (instant) | ≥60% of top-10 titles match patterns |
 | Price viability | 50 | Price between $15 and $80 |
 | Price ceiling | 20 | Price ≤ $80 practical sourcing ceiling |
-| FBA-friendly category | 30 | Keyword contains FBA-friendly category signal |
+| FBA-friendly category | 30 | Keyword contains FBA-friendly signal |
 
 #### Economic Viability (0–100)
-Estimates whether unit economics work at the observed price point.
 
 ```
 profit_per_unit = price - (price × 15%) - $4.50 FBA fee - (price × 33% COGS)
@@ -1119,14 +1021,9 @@ Minimum required: $5.00 profit per unit
 Minimum category revenue: $3,000/month
 ```
 
-| Component | Max pts | Rule |
-|---|---|---|
-| Profit per unit after fees | 60 | ≥$5 required; scales with margin |
-| Estimated monthly category revenue | 40 | review_count × 0.05 × price |
-
 ### Hard-kill categories
 
-Ideas with keywords matching these patterns are instantly dismissed before any scraping:
+Ideas with keywords matching these patterns are instantly dismissed:
 - Digital/media: `book`, `kindle`, `music`, `dvd`, `software`, `gift card`
 - Food/consumables: `coffee`, `tea`, `supplement`, `vitamin`, `snack`
 - Regulated: `tobacco`, `alcohol`, `firearm`, `pharmaceutical`
@@ -1154,12 +1051,14 @@ All scoring constants are in [api/scoring/config.py](api/scoring/config.py).
 | `MAX_PRACTICAL_PRICE` | `$80.00` | Above this → sourcing too complex |
 | `MIN_MONTHLY_REVENUE` | `$3,000` | Minimum category revenue |
 
-Django settings in [npdapi/settings.py](npdapi/settings.py):
+Django / MongoDB settings in [npdapi/settings.py](npdapi/settings.py):
 
-| Setting | Value |
-|---|---|
-| `IDEA_MEMORY_PATH` | `BASE_DIR/data/ideas.ndjson` |
-| `BA_DB_PATH` | `BASE_DIR/data/brand_analytics.sqlite3` |
+| Setting | Value | Description |
+|---|---|---|
+| `MONGO_URI` | `MONGO_URI` env var | MongoDB connection string |
+| `MONGO_DB` | `MONGO_DB` env var | Database name (default: `npd_db`) |
+| `IDEA_MEMORY_PATH` | *(legacy — ignored)* | Kept for backward compatibility |
+| `BA_DB_PATH` | *(legacy — ignored)* | Kept for backward compatibility |
 
 ---
 
@@ -1169,15 +1068,15 @@ Django settings in [npdapi/settings.py](npdapi/settings.py):
 NPD-api/
 ├── manage.py
 ├── .env                          ← All secrets (never commit)
-├── Document.md                   ← This file
-├── npd_flow_technical_overview.md← Pipeline design reference
-├── data/
-│   ├── ideas.ndjson              ← Idea memory store (auto-created)
-│   └── brand_analytics.sqlite3   ← BA keyword index (populated by ingest)
+├── Dockerfile                    ← Docker image build instructions
+├── docker-compose.yml            ← MongoDB + web service orchestration
+├── .dockerignore                 ← Files excluded from Docker image
+├── requirements.txt              ← All pinned Python dependencies
+├── README.md                     ← This file
 │
 ├── npdapi/
-│   ├── settings.py               ← Django settings + IDEA_MEMORY_PATH, BA_DB_PATH
-│   └── urls.py                   ← Routes /api/ to api/urls.py
+│   ├── settings.py               ← Django settings + MONGO_URI, MONGO_DB
+│   └── urls.py                   ← Routes /api/ → api/urls.py
 │
 └── api/
     ├── views.py                  ← All REST endpoint handlers
@@ -1191,13 +1090,13 @@ NPD-api/
     │   ├── scraper.py            ← fetch_amazon_product()
     │   └── parser.py             ← parse_amazon_product()
     │
-    ├── memory/                   ← NDJSON idea store
+    ├── memory/                   ← MongoDB idea store
     │   ├── schema.py             ← build_default_idea(), VALID_STATUSES
-    │   └── store.py              ← IdeaMemoryStore (create/get/update/filter)
+    │   └── store.py              ← IdeaMemoryStore (MongoDB-backed)
     │
     ├── brand_analytics/          ← SP-API Brand Analytics
     │   ├── spapi_client.py       ← LWA auth, SigV4 signing, report download
-    │   ├── db.py                 ← SQLite index (init/insert/lookup)
+    │   ├── db.py                 ← MongoDB ba_search_terms (init/insert/lookup)
     │   ├── ingestion.py          ← run_ingestion() orchestrator
     │   └── management/commands/
     │       └── ingest_brand_analytics.py
@@ -1211,7 +1110,7 @@ NPD-api/
     │
     ├── reviews/                  ← Tier 2A review scraping
     │   ├── scraper.py            ← fetch_amazon_reviews()
-    │   ├── parser.py             ← parse_amazon_reviews(), has_next_page()
+    │   ├── parser.py             ← parse_amazon_reviews()
     │   ├── job.py                ← run_review_scraping()
     │   └── management/commands/
     │       └── scrape_reviews.py
@@ -1230,30 +1129,35 @@ NPD-api/
 ## Quick Start — End-to-End Example
 
 ```bash
-# 1. Check setup
-python manage.py check
+# 1. Start the stack
+docker compose up -d
 
-# 2. (Weekly) Ingest Brand Analytics
-python manage.py ingest_brand_analytics
+# 2. (Weekly) Ingest Brand Analytics into MongoDB
+docker exec npd_web python manage.py ingest_brand_analytics
 
 # 3. Score a new product idea
-python manage.py score_idea --keyword "bamboo travel mug" --json
+docker exec npd_web python manage.py score_idea --keyword "bamboo travel mug" --json
 
 # 4. [HUMAN] Review score — if good, shortlist via API:
 #    PATCH /api/ideas/<idea_id>/update/  {"status": "shortlisted"}
 
 # 5. Scrape competitor reviews
-python manage.py scrape_reviews --idea-id <uuid>
+docker exec npd_web python manage.py scrape_reviews --idea-id <uuid>
 
 # 6. Run GPT-4o analysis
-python manage.py run_tier2c --idea-id <uuid>
+docker exec npd_web python manage.py run_tier2c --idea-id <uuid>
 
 # 7. [HUMAN] Review analysis — if approved, move to pre-sourcing:
 #    PATCH /api/ideas/<idea_id>/update/  {"status": "pre_sourcing"}
 
 # 8. Generate pre-sourcing documents
-python manage.py run_tier3 --idea-id <uuid>
+docker exec npd_web python manage.py run_tier3 --idea-id <uuid>
 
 # 9. Retrieve the complete idea record
 #    GET /api/ideas/<idea_id>/
+
+# 10. Inspect data directly in MongoDB
+docker exec -it npd_mongodb mongosh \
+  "mongodb://npduser:npdpassword@localhost:27017/npd_db?authSource=admin" \
+  --eval "db.ideas.find({}, {idea_id:1, keyword:1, status:1, tier1_score:1}).pretty()"
 ```
