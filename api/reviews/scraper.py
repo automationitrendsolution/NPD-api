@@ -1,5 +1,5 @@
-import json
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -21,13 +21,17 @@ _load_dotenv()
 
 SCRAPINGBEE_API_KEY = os.getenv("SCRAPINGBEE_API_KEY")
 
+_MAX_RETRIES = 3
+_RETRY_DELAYS = [5, 15, 30]  # seconds between retries
+
 
 def fetch_amazon_reviews(asin, page=1):
     """
-    Fetch one page of Amazon customer reviews for an ASIN.
+    Fetch one page of Amazon customer reviews for an ASIN via ScrapingBee.
 
-    Uses ScrapingBee with JS rendering and a US premium proxy so the
-    review content loads in full and anti-bot checks are bypassed.
+    Uses JS rendering + US premium residential proxy so Amazon's full review
+    page loads and anti-bot checks are bypassed. Retries up to 3 times on
+    transient 500 errors before raising.
 
     Returns raw HTML string.
     """
@@ -38,24 +42,52 @@ def fetch_amazon_reviews(asin, page=1):
     if not SCRAPINGBEE_API_KEY:
         raise ValueError("SCRAPINGBEE_API_KEY environment variable is required")
 
-    url = f"https://www.amazon.com/product-reviews/{asin}?pageNumber={page}&reviewerType=all_reviews"
-
-    response = requests.get(
-        "https://app.scrapingbee.com/api/v1/",
-        params={
-            "api_key":        SCRAPINGBEE_API_KEY,
-            "url":            url,
-            "render_js":      "true",
-            "block_resources": "false",
-            "premium_proxy":  "true",
-            "country_code":   "us",
-            "wait":           "2000",
-        },
-        timeout=120,
+    url = (
+        f"https://www.amazon.com/product-reviews/{asin}"
+        f"?pageNumber={page}"
+        f"&reviewerType=all_reviews"
+        f"&filterByStar=all_stars"
+        f"&sortBy=recent"
     )
 
-    if not response.ok:
-        raise RuntimeError(
-            f"ScrapingBee {response.status_code}: {response.text[:300]}"
-        )
-    return response.text
+    last_error = None
+    for attempt in range(_MAX_RETRIES):
+        if attempt > 0:
+            time.sleep(_RETRY_DELAYS[attempt - 1])
+
+        try:
+            response = requests.get(
+                "https://app.scrapingbee.com/api/v1/",
+                params={
+                    "api_key":        SCRAPINGBEE_API_KEY,
+                    "url":            url,
+                    "render_js":      "true",
+                    "premium_proxy":  "true",
+                    "country_code":   "us",
+                    "wait":           "2000",
+                    "block_resources": "false",
+                },
+                timeout=120,
+            )
+        except requests.exceptions.Timeout:
+            last_error = f"Request timed out (attempt {attempt + 1})"
+            continue
+        except requests.exceptions.RequestException as exc:
+            last_error = f"Network error (attempt {attempt + 1}): {exc}"
+            continue
+
+        if response.status_code == 500:
+            last_error = f"ScrapingBee 500 (attempt {attempt + 1}): {response.text[:200]}"
+            continue  # retry on transient ScrapingBee error
+
+        if not response.ok:
+            raise RuntimeError(
+                f"ScrapingBee {response.status_code}: {response.text[:300]}"
+            )
+
+        return response.text
+
+    raise RuntimeError(
+        f"ScrapingBee failed after {_MAX_RETRIES} attempts for ASIN {asin}. "
+        f"Last error: {last_error}"
+    )

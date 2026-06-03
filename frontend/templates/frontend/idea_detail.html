@@ -77,6 +77,12 @@
                         <div class="text-muted small mt-2" id="scored-at-text"></div>
                     </div>
                 </div>
+                <div class="card" id="competitor-review-card" style="display:none">
+                    <div class="card-header d-flex align-items-center gap-2" style="font-size:.82rem">
+                        <i class="bi bi-people text-primary"></i> Competitor Review Counts
+                    </div>
+                    <div class="card-body p-0" id="competitor-review-list"></div>
+                </div>
             </div>
             <div class="col-lg-7">
                 <div class="card mb-3">
@@ -237,6 +243,13 @@
 var ideaId = '{{ idea_id }}';
 var DIMS = ['demand', 'saturation', 'differentiation', 'fit', 'economic_viability'];
 var DIM_LABELS = { demand:'Demand', saturation:'Saturation', differentiation:'Differentiation', fit:'Fit', economic_viability:'Economic Viability' };
+var DIM_TIPS = {
+    demand:             'Search demand score — based on Search Frequency Rank (SFR) or BSR proxy. Higher score = more customers actively searching for this type of product.',
+    saturation:         'Market saturation score — based on competitor review counts. Higher score = less crowded market, easier to gain early traction.',
+    differentiation:    'Differentiation opportunity — based on badge count & sponsored ad ratio on page 1. Higher score = more room to stand out vs existing products.',
+    fit:                'Platform fit score — based on price band alignment and category suitability for Amazon private label. Higher score = better marketplace economics.',
+    economic_viability: 'Economic viability — based on price band vs. estimated landed cost and margin potential. Higher score = stronger profit outlook for a new entrant.'
+};
 var _lastActionError = {};
 var _ideaCache = null;
 
@@ -398,26 +411,108 @@ function renderScoring(idea) {
 
     document.getElementById('sub-score-bars-detail').innerHTML = DIMS.map(function(d) {
         var v = scores[d] != null ? scores[d] : 0;
+        var tip = (DIM_TIPS[d] || '').replace(/"/g, '&quot;');
         return '<div class="d-flex align-items-center gap-2 mb-2">' +
-            '<div style="width:120px;font-size:.82rem;flex-shrink:0">' + DIM_LABELS[d] + '</div>' +
+            '<div style="width:120px;font-size:.82rem;flex-shrink:0;cursor:help" ' +
+                'data-bs-toggle="tooltip" data-bs-placement="right" title="' + tip + '">' +
+                DIM_LABELS[d] + ' <i class="bi bi-info-circle text-muted" style="font-size:.65rem;opacity:.6"></i>' +
+            '</div>' +
             '<div class="progress flex-grow-1" style="height:7px"><div class="progress-bar ' + scoreBarColor(v) + '" style="width:' + v + '%"></div></div>' +
             '<div style="width:28px;text-align:right;font-size:.82rem;font-weight:600;flex-shrink:0">' + v + '</div>' +
             '</div>';
     }).join('');
+    // Init tooltips on dimension labels
+    document.querySelectorAll('#sub-score-bars-detail [data-bs-toggle="tooltip"]').forEach(function(el) {
+        new bootstrap.Tooltip(el, { trigger: 'hover' });
+    });
 
     document.getElementById('flags-detail').innerHTML = flagBadges(idea.flags);
     document.getElementById('scored-at-text').textContent = idea.tier1_at ? 'Scored ' + relativeTime(idea.tier1_at) : '';
 
+    // ── Competitor review counts card ────────────────────
     var ev = idea.tier1_evidence || {};
+    var compDetails = ev.competitor_details || [];
+    var topAsinSet = {};
+    (ev.competitor_asins || []).forEach(function(a, i) { topAsinSet[a] = i + 1; });
+    var compCard = document.getElementById('competitor-review-card');
+    var compList = document.getElementById('competitor-review-list');
+    if (compDetails.length) {
+        var maxReviews = Math.max.apply(null, compDetails.map(function(d) { return d.review_count || 0; })) || 1;
+        var rankColors = ['danger', 'warning', 'info', 'secondary'];
+        compList.innerHTML = compDetails.map(function(d, i) {
+            var asin = d.asin || '';
+            var title = (d.title || asin).substring(0, 48) + ((d.title || '').length > 48 ? '…' : '');
+            var reviews = d.review_count != null ? d.review_count : null;
+            var pct = reviews != null ? Math.max(4, Math.round((reviews / maxReviews) * 100)) : 0;
+            var rank = topAsinSet[asin];
+            var rankBadge = rank
+                ? '<span class="badge bg-' + (rankColors[rank - 1] || 'secondary') + ' me-2" style="font-size:.62rem;min-width:24px">#' + rank + '</span>'
+                : '<span style="display:inline-block;width:30px"></span>';
+            return '<div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom" style="font-size:.8rem">' +
+                rankBadge +
+                '<a href="/research/?asin=' + esc(asin) + '" class="text-decoration-none fw-semibold text-dark flex-shrink-0" style="width:90px;font-size:.75rem;font-family:monospace">' + esc(asin) + '</a>' +
+                '<div class="flex-grow-1">' +
+                    '<div class="text-muted mb-1" style="font-size:.72rem;line-height:1.2">' + esc(title) + '</div>' +
+                    '<div class="d-flex align-items-center gap-2">' +
+                        '<div class="progress flex-grow-1" style="height:5px">' +
+                            '<div class="progress-bar bg-primary" style="width:' + pct + '%"></div>' +
+                        '</div>' +
+                        '<span class="text-muted" style="font-size:.72rem;min-width:50px;text-align:right">' +
+                            (reviews != null ? reviews.toLocaleString() + ' rev' : '—') +
+                        '</span>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        compCard.style.display = '';
+    } else {
+        compCard.style.display = 'none';
+    }
+
     document.getElementById('ev-price').textContent    = ev.price_band_low != null ? '$' + ev.price_band_low + ' – $' + ev.price_band_high : '—';
     document.getElementById('ev-reviews').textContent  = ev.review_count_median != null ? ev.review_count_median.toLocaleString() : '—';
     document.getElementById('ev-badges').textContent   = ev.badge_count != null ? ev.badge_count : '—';
     document.getElementById('ev-sponsored').textContent = ev.sponsored_ratio != null ? (ev.sponsored_ratio * 100).toFixed(0) + '%' : '—';
 
-    var asins = ev.competitor_asins || [];
-    document.getElementById('competitor-asins-list').innerHTML = asins.length
-        ? asins.map(function(a) { return '<a href="/research/?asin=' + esc(a) + '" class="badge bg-light text-dark border me-1 text-decoration-none" style="font-size:.8rem"><i class="bi bi-upc-scan me-1"></i>' + esc(a) + '</a>'; }).join('')
+    // Collect ALL unique ASINs from every evidence source
+    var seen = {}, allAsins = [], topRank = 0;
+    function addAsin(a, label, title) {
+        if (a && !seen[a]) {
+            seen[a] = true;
+            var rank = label === 'top' ? ++topRank : null;
+            allAsins.push({ asin: a, label: label, title: title || '', rank: rank });
+        }
+    }
+    // Build title map from competitor_details (product page scrapes)
+    var titleMap = {};
+    (ev.competitor_details || []).forEach(function(d) { if (d.asin) titleMap[d.asin] = d.title || ''; });
+
+    (ev.competitor_asins || []).forEach(function(a) { addAsin(a, 'top', titleMap[a] || ''); });
+    (ev.competitor_details || []).forEach(function(d) { addAsin(d.asin, 'detail', d.title || ''); });
+    (ev.serp_results || []).forEach(function(p) { addAsin(p.asin, 'serp', titleMap[p.asin] || p.title || ''); });
+
+    var rankColors = ['danger', 'warning', 'info'];
+
+    document.getElementById('competitor-asins-list').innerHTML = allAsins.length
+        ? '<div class="d-flex flex-wrap gap-2">' + allAsins.map(function(item) {
+            var tipText = item.title ? item.title.substring(0, 120) : item.asin;
+            var borderCls = item.rank ? 'border-primary' : '';
+            var rankBadge = item.rank
+                ? '<span class="badge bg-' + (rankColors[item.rank - 1] || 'secondary') + ' me-1" style="font-size:.65rem;vertical-align:middle">#' + item.rank + '</span>'
+                : '';
+            return '<a href="/research/?asin=' + esc(item.asin) + '" ' +
+                'data-bs-toggle="tooltip" data-bs-placement="top" title="' + tipText.replace(/"/g, '&quot;') + '" ' +
+                'class="badge bg-light text-dark border ' + borderCls + ' text-decoration-none d-inline-flex align-items-center gap-1" style="font-size:.8rem;padding:.35em .55em">' +
+                rankBadge +
+                '<i class="bi bi-upc-scan"></i> ' + esc(item.asin) +
+                '</a>';
+        }).join('') + '</div>'
         : '<span class="text-muted small">No ASINs recorded</span>';
+
+    // Init tooltips on ASIN badges
+    document.querySelectorAll('#competitor-asins-list [data-bs-toggle="tooltip"]').forEach(function(el) {
+        new bootstrap.Tooltip(el, { trigger: 'hover' });
+    });
 }
 
 function renderReviews(idea) {

@@ -115,7 +115,6 @@ def has_next_page(html):
     'a-last a-disabled' when it is the final page.
     """
     soup = BeautifulSoup(html, "lxml")
-    # Active next-page button: li.a-last that is NOT disabled and contains a link
     next_li = soup.select_one("li.a-last")
     if next_li and "a-disabled" not in next_li.get("class", []):
         return next_li.find("a") is not None

@@ -44,4 +44,12 @@ urlpatterns = [
     # ── System health ──────────────────────────────────────────────────────────
     # GET /api/db-status/ → MongoDB connectivity + collection stats
     path("db-status/", views.db_status, name="db-status"),
+
+    # ── Research History ───────────────────────────────────────────────────────
+    # GET/POST /api/research-history/                    → list or save
+    # DELETE   /api/research-history/clear/              → wipe all
+    # DELETE   /api/research-history/<history_id>/       → delete one
+    path("research-history/",                    views.research_history,        name="research-history"),
+    path("research-history/clear/",              views.research_history_clear,  name="research-history-clear"),
+    path("research-history/<str:history_id>/",   views.research_history_delete, name="research-history-delete"),
 ]

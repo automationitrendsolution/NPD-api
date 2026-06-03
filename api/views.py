@@ -722,3 +722,63 @@ def db_status(request):
             "ideas_count": 0,
             "error": str(e),
         })
+
+
+# ── Research History endpoints ────────────────────────────────────────────────
+
+
+def _get_history_collection():
+    db_name = os.getenv("MONGO_DB", "npd_db")
+    return _get_mongo_client()[db_name]["research_history"]
+
+
+@api_view(["GET", "POST"])
+def research_history(request):
+    """
+    GET  /api/research-history/  → return all history items (newest first)
+    POST /api/research-history/  → save a new research result
+    """
+    col = _get_history_collection()
+
+    if request.method == "GET":
+        items = list(col.find({}, {"_id": 0}).sort("searched_at", -1).limit(100))
+        return Response({"history": items})
+
+    # POST — save a new entry
+    body = request.data
+    keyword = (body.get("keyword") or "").strip()
+    if not keyword:
+        return Response({"error": "keyword required"}, status=400)
+
+    from datetime import datetime, timezone
+    import uuid
+
+    entry = {
+        "history_id":    str(uuid.uuid4()),
+        "keyword":       keyword,
+        "page":          body.get("page", 1),
+        "product_count": body.get("product_count", 0),
+        "products":      body.get("products", []),
+        "searched_at":   datetime.now(timezone.utc).isoformat(),
+    }
+    col.insert_one(entry)
+    entry.pop("_id", None)
+    return Response(entry, status=201)
+
+
+@api_view(["DELETE"])
+def research_history_delete(request, history_id):
+    """DELETE /api/research-history/<history_id>/"""
+    col = _get_history_collection()
+    result = col.delete_one({"history_id": history_id})
+    if result.deleted_count == 0:
+        return Response({"error": "not found"}, status=404)
+    return Response({"deleted": history_id})
+
+
+@api_view(["DELETE"])
+def research_history_clear(request):
+    """DELETE /api/research-history/clear/  — wipe all history"""
+    col = _get_history_collection()
+    result = col.delete_many({})
+    return Response({"deleted_count": result.deleted_count})

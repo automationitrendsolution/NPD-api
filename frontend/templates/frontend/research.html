@@ -19,7 +19,31 @@
             <button class="btn btn-primary" id="btn-search">
                 <i class="bi bi-search me-1"></i>Search
             </button>
+            <button class="btn btn-outline-secondary" id="btn-history" title="View search history">
+                <i class="bi bi-clock-history me-1"></i>History
+                <span class="badge bg-secondary ms-1 d-none" id="history-count-badge">0</span>
+            </button>
             <span class="text-muted small d-none" id="result-summary"></span>
+        </div>
+    </div>
+</div>
+
+<!-- History Panel -->
+<div id="history-panel" class="card mb-3 d-none">
+    <div class="card-header d-flex align-items-center justify-content-between py-2" style="font-size:.85rem">
+        <span><i class="bi bi-clock-history text-primary me-2"></i><strong>Search History</strong></span>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-danger btn-sm" id="btn-clear-history" style="font-size:.75rem">
+                <i class="bi bi-trash3 me-1"></i>Clear All
+            </button>
+            <button class="btn btn-sm btn-outline-secondary" id="btn-close-history" style="font-size:.75rem">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0" id="history-list">
+        <div class="text-center text-muted py-4 small" id="history-empty">
+            <i class="bi bi-inbox display-6 d-block mb-2 opacity-50"></i>No search history yet.
         </div>
     </div>
 </div>
@@ -30,13 +54,11 @@
     <div class="text-muted small">Searching Amazon via ScrapingBee…</div>
 </div>
 
-<!-- Results row (hidden until search runs) -->
+<!-- Results row -->
 <div class="row g-3 d-none" id="search-results-row">
-    <!-- Product grid -->
     <div class="col-lg-7">
         <div class="row g-2" id="products-grid"></div>
     </div>
-    <!-- Detail panel -->
     <div class="col-lg-5">
         <div class="card" id="detail-panel">
             <div class="card-body text-center py-5 text-muted">
@@ -47,7 +69,7 @@
     </div>
 </div>
 
-<!-- Empty state (shown on first load) -->
+<!-- Empty state -->
 <div id="empty-state" class="text-center py-5">
     <i class="bi bi-shop display-3 text-muted d-block mb-3"></i>
     <h5 class="text-muted">Search a keyword to explore products</h5>
@@ -56,10 +78,271 @@
         <i class="bi bi-stars me-1"></i>Go to Score Idea
     </a>
 </div>
+
+<!-- History Detail Modal -->
+<div class="modal fade" id="historyDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <div>
+                    <h6 class="modal-title mb-0" id="hd-title">Search Results</h6>
+                    <div class="text-muted" style="font-size:.75rem" id="hd-meta"></div>
+                </div>
+                <div class="d-flex gap-2 align-items-center ms-auto me-2">
+                    <button class="btn btn-sm btn-success" id="hd-btn-score" style="font-size:.78rem">
+                        <i class="bi bi-stars me-1"></i>Score Keyword
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" id="hd-btn-rerun" style="font-size:.78rem">
+                        <i class="bi bi-arrow-repeat me-1"></i>Re-run Fresh
+                    </button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3" id="hd-body">
+                <div class="row g-2" id="hd-products-grid"></div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+// ── History store ────────────────────────────────────────────────────────────
+var _historyItems = [];
+var _historyVisible = false;
+var _historyModal = null;
+
+async function loadHistory() {
+    try {
+        var data = await apiGet('/api/research-history/');
+        _historyItems = data.history || [];
+        renderHistory(_historyItems);
+        var badge = document.getElementById('history-count-badge');
+        if (_historyItems.length > 0) {
+            badge.textContent = _historyItems.length;
+            badge.classList.remove('d-none');
+        } else {
+            badge.classList.add('d-none');
+        }
+    } catch(e) {}
+}
+
+function renderHistory(items) {
+    var list = document.getElementById('history-list');
+    var empty = document.getElementById('history-empty');
+    if (!items.length) {
+        list.innerHTML = '';
+        list.appendChild(empty);
+        empty.classList.remove('d-none');
+        return;
+    }
+    empty.classList.add('d-none');
+    list.innerHTML = items.map(function(item, idx) {
+        var dt = item.searched_at ? new Date(item.searched_at) : null;
+        var dtStr = dt ? dt.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'}) + ' ' +
+            dt.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}) : '';
+        var pageLabel = item.page > 1
+            ? ' <span class="badge bg-light text-dark border ms-1" style="font-size:.65rem">pg ' + item.page + '</span>'
+            : '';
+        var products = item.products || [];
+        // Mini product thumbnails (up to 5)
+        var thumbs = products.slice(0, 5).map(function(p) {
+            return p.image_url
+                ? '<img src="' + esc(p.image_url) + '" style="width:36px;height:36px;object-fit:contain;border-radius:4px;border:1px solid #e0e0e0;background:#fafafa" loading="lazy" title="' + esc((p.title||'').substring(0,60)) + '">'
+                : '<div style="width:36px;height:36px;border-radius:4px;border:1px solid #e0e0e0;background:#f5f5f5"></div>';
+        }).join('');
+        var moreLabel = products.length > 5
+            ? '<span class="text-muted" style="font-size:.7rem;line-height:36px">+' + (products.length - 5) + '</span>'
+            : '';
+
+        return '<div class="px-3 py-3 border-bottom" style="background:' + (idx % 2 === 0 ? '#fff' : '#fafbff') + '">' +
+            // Row 1: icon + keyword + date + actions
+            '<div class="d-flex align-items-center gap-2 mb-2">' +
+                '<i class="bi bi-search text-muted" style="font-size:.8rem;flex-shrink:0"></i>' +
+                '<div class="flex-grow-1 overflow-hidden">' +
+                    '<span class="fw-semibold" style="font-size:.88rem">' + esc(item.keyword) + '</span>' + pageLabel +
+                    '<span class="text-muted ms-2" style="font-size:.72rem">' + dtStr + '</span>' +
+                '</div>' +
+                '<div class="d-flex gap-1 flex-shrink-0">' +
+                    '<button class="btn btn-primary btn-sm py-0 px-2" style="font-size:.73rem" onclick="viewHistoryDetail(\'' + esc(item.history_id) + '\')">' +
+                        '<i class="bi bi-eye me-1"></i>View' +
+                    '</button>' +
+                    '<button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size:.73rem" title="Re-run fresh from Amazon" onclick="rerunHistory(\'' + esc(item.history_id) + '\', \'' + esc(item.keyword) + '\', ' + (item.page || 1) + ')">' +
+                        '<i class="bi bi-arrow-repeat"></i>' +
+                    '</button>' +
+                    '<button class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size:.73rem" onclick="deleteHistory(\'' + esc(item.history_id) + '\')">' +
+                        '<i class="bi bi-trash3"></i>' +
+                    '</button>' +
+                '</div>' +
+            '</div>' +
+            // Row 2: product thumbnails + count + price range
+            (products.length ? buildProductSummaryRow(products, thumbs, moreLabel) : '') +
+        '</div>';
+    }).join('');
+}
+
+function buildProductSummaryRow(products, thumbs, moreLabel) {
+    var prices = products.map(function(p) { return p.price; }).filter(function(p) { return p != null; });
+    var priceRange = prices.length
+        ? '$' + Math.min.apply(null, prices).toFixed(2) + (prices.length > 1 ? ' – $' + Math.max.apply(null, prices).toFixed(2) : '')
+        : '';
+    var sponsored = products.filter(function(p) { return p.sponsored; }).length;
+    var badged = products.filter(function(p) { return p.badge; }).length;
+    var tags = [];
+    if (priceRange) tags.push('<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25" style="font-size:.68rem">' + priceRange + '</span>');
+    if (sponsored) tags.push('<span class="badge bg-secondary bg-opacity-10 text-secondary border" style="font-size:.68rem">' + sponsored + ' ads</span>');
+    if (badged) tags.push('<span class="badge bg-warning bg-opacity-15 text-warning border border-warning border-opacity-25" style="font-size:.68rem">' + badged + ' badges</span>');
+
+    return '<div class="d-flex align-items-center gap-2 ms-3">' +
+        '<div class="d-flex gap-1 align-items-center">' + thumbs + moreLabel + '</div>' +
+        '<div class="text-muted" style="font-size:.72rem">' + products.length + ' products</div>' +
+        (tags.length ? '<div class="d-flex gap-1 flex-wrap">' + tags.join('') + '</div>' : '') +
+    '</div>';
+}
+
+function viewHistoryDetail(historyId) {
+    var item = _historyItems.find(function(i) { return i.history_id === historyId; });
+    if (!item) return;
+
+    var dt = item.searched_at ? new Date(item.searched_at) : null;
+    var dtStr = dt ? dt.toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+    var pageLabel = item.page > 1 ? ' · Page ' + item.page : '';
+
+    document.getElementById('hd-title').textContent = '"' + item.keyword + '"';
+    document.getElementById('hd-meta').textContent =
+        (item.product_count || (item.products || []).length) + ' products saved' + pageLabel + ' · ' + dtStr;
+
+    // Score button
+    document.getElementById('hd-btn-score').onclick = function() {
+        window.location.href = '/score/?kw=' + encodeURIComponent(item.keyword);
+    };
+    // Re-run button
+    document.getElementById('hd-btn-rerun').onclick = function() {
+        _historyModal.hide();
+        document.getElementById('inp-search').value = item.keyword;
+        document.getElementById('inp-page').value = item.page || 1;
+        toggleHistory(false);
+        searchAmazon();
+    };
+
+    // Render products grid in modal
+    var grid = document.getElementById('hd-products-grid');
+    var products = item.products || [];
+    if (!products.length) {
+        grid.innerHTML = '<div class="col-12 text-center text-muted py-5"><i class="bi bi-inbox display-5 d-block mb-2 opacity-50"></i><div>No product data was saved for this search.</div></div>';
+    } else {
+        grid.innerHTML = products.map(function(p) {
+            var titleShort = (p.title || '—').substring(0, 65) + ((p.title || '').length > 65 ? '…' : '');
+            var asin = p.asin || '';
+            return '<div class="col-lg-4 col-md-6">' +
+                '<div class="idea-card h-100" style="cursor:pointer" onclick="showDetailFromHistory(\'' + esc(asin) + '\', \'' + esc(item.keyword) + '\')">' +
+                    (p.image_url ? '<img src="' + esc(p.image_url) + '" style="width:100%;height:100px;object-fit:contain;margin-bottom:.5rem" loading="lazy" alt="">' : '') +
+                    '<div class="d-flex justify-content-between align-items-start mb-1">' +
+                        (asin ? '<span class="badge bg-light text-dark border" style="font-size:.65rem"><i class="bi bi-upc-scan me-1"></i>' + esc(asin) + '</span>' : '<span></span>') +
+                        '<div>' +
+                            (p.badge ? '<span class="badge bg-warning text-dark me-1" style="font-size:.65rem">' + esc(p.badge) + '</span>' : '') +
+                            (p.sponsored ? '<span class="badge bg-secondary" style="font-size:.65rem">Ad</span>' : '') +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="fw-semibold mb-1" style="font-size:.8rem;line-height:1.35">' + esc(titleShort) + '</div>' +
+                    '<div class="d-flex justify-content-between align-items-center">' +
+                        (p.price != null ? '<span class="text-success fw-bold" style="font-size:.85rem">$' + p.price.toFixed(2) + '</span>' : '<span class="text-muted">—</span>') +
+                        '<span>' + renderStars(p.rating) + '</span>' +
+                    '</div>' +
+                    (p.reviews != null ? '<div class="text-muted" style="font-size:.72rem">' + p.reviews.toLocaleString() + ' reviews</div>' : '') +
+                    '<div class="mt-2">' +
+                        '<a href="/research/?asin=' + esc(asin) + '" class="btn btn-outline-secondary btn-sm w-100 py-0" style="font-size:.72rem">' +
+                            '<i class="bi bi-upc-scan me-1"></i>Open Product' +
+                        '</a>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    if (!_historyModal) {
+        _historyModal = new bootstrap.Modal(document.getElementById('historyDetailModal'));
+    }
+    _historyModal.show();
+}
+
+async function showDetailFromHistory(asin, keyword) {
+    if (!asin) return;
+    // Close modal and load in the main detail panel
+    if (_historyModal) _historyModal.hide();
+    toggleHistory(false);
+    document.getElementById('inp-search').value = keyword;
+    document.getElementById('empty-state').classList.add('d-none');
+    document.getElementById('search-results-row').classList.remove('d-none');
+    showDetail(asin);
+}
+
+async function saveHistory(keyword, page, productCount, products) {
+    try {
+        await fetch('/api/research-history/', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken()},
+            body: JSON.stringify({keyword: keyword, page: parseInt(page), product_count: productCount, products: products})
+        });
+        loadHistory();
+    } catch(e) {}
+}
+
+async function deleteHistory(historyId) {
+    try {
+        await fetch('/api/research-history/' + historyId + '/', {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': getCsrfToken()}
+        });
+        loadHistory();
+        showToast('History item deleted.', 'secondary');
+    } catch(e) {
+        showToast('Could not delete history item.', 'danger');
+    }
+}
+
+async function clearHistory() {
+    if (!confirm('Clear all search history?')) return;
+    try {
+        await fetch('/api/research-history/clear/', {
+            method: 'DELETE',
+            headers: {'X-CSRFToken': getCsrfToken()}
+        });
+        loadHistory();
+        showToast('History cleared.', 'secondary');
+    } catch(e) {
+        showToast('Could not clear history.', 'danger');
+    }
+}
+
+function rerunHistory(historyId, keyword, page) {
+    toggleHistory(false);
+    document.getElementById('inp-search').value = keyword;
+    document.getElementById('inp-page').value = page;
+    searchAmazon();
+}
+
+function toggleHistory(forceOpen) {
+    var panel = document.getElementById('history-panel');
+    _historyVisible = forceOpen !== undefined ? forceOpen : !_historyVisible;
+    if (_historyVisible) {
+        panel.classList.remove('d-none');
+        loadHistory();
+    } else {
+        panel.classList.add('d-none');
+    }
+}
+
+function getCsrfToken() {
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta) return meta.getAttribute('content');
+    var cookie = document.cookie.split(';').find(function(c) { return c.trim().startsWith('csrftoken='); });
+    return cookie ? cookie.trim().split('=')[1] : '';
+}
+
+// ── Search ───────────────────────────────────────────────────────────────────
+
 async function searchAmazon() {
     var keyword = document.getElementById('inp-search').value.trim();
     if (!keyword) return;
@@ -72,11 +355,13 @@ async function searchAmazon() {
 
     try {
         var data = await apiGet('/api/amazon-search/?keyword=' + encodeURIComponent(keyword) + '&page=' + page);
-        renderProducts(data.products || [], keyword);
+        var products = data.products || [];
+        renderProducts(products, keyword);
         var summary = document.getElementById('result-summary');
         summary.textContent = (data.product_count || 0) + ' products found for "' + keyword + '"';
         summary.classList.remove('d-none');
         document.getElementById('search-results-row').classList.remove('d-none');
+        saveHistory(keyword, page, data.product_count || 0, products);
     } catch(e) {
         showToast('Search failed: ' + e.message, 'danger');
         document.getElementById('empty-state').classList.remove('d-none');
@@ -140,7 +425,7 @@ async function showDetail(asin) {
                 ? '<div class="mb-3"><div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:.3rem">Key Features</div>' +
                   '<ul style="font-size:.8rem;padding-left:1.1rem">' + p.bullet_points.slice(0, 4).map(function(b) { return '<li class="mb-1">' + esc(b) + '</li>'; }).join('') + '</ul></div>'
                 : '') +
-            '<a href="/score/?kw=' + encodeURIComponent(kw || asin) + '" class="btn btn-success btn-sm w-100 mt-1" id="score-link">' +
+            '<a href="/score/?kw=' + encodeURIComponent(kw || asin) + '" class="btn btn-success btn-sm w-100 mt-1">' +
                 '<i class="bi bi-stars me-1"></i>Score "' + esc(kw || asin) + '"' +
             '</a>' +
             '</div>';
@@ -149,18 +434,21 @@ async function showDetail(asin) {
     }
 }
 
+// ── Event wiring ─────────────────────────────────────────────────────────────
+
 document.getElementById('btn-search').addEventListener('click', searchAmazon);
 document.getElementById('inp-search').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') searchAmazon();
 });
+document.getElementById('btn-history').addEventListener('click', function() { toggleHistory(); });
+document.getElementById('btn-close-history').addEventListener('click', function() { toggleHistory(false); });
+document.getElementById('btn-clear-history').addEventListener('click', clearHistory);
 
-// Pre-fill keyword from query string
 (function() {
     var params = new URLSearchParams(window.location.search);
     var kw = params.get('keyword') || params.get('asin') || '';
-    if (kw) {
-        document.getElementById('inp-search').value = kw;
-    }
+    if (kw) document.getElementById('inp-search').value = kw;
+    loadHistory();
 })();
 </script>
 {% endblock %}
