@@ -5,7 +5,7 @@ Triggered when: a human moves the idea status to "pre_sourcing".
 
 What this does
 --------------
-Uses three focused LLM calls (split for clarity and cost control) to
+Uses four focused LLM calls (split for clarity and cost control) to
 generate the full set of documents a sourcing team needs to brief
 a manufacturer:
 
@@ -22,7 +22,11 @@ a manufacturer:
       compliance/safety requirements, quote volumes, supplier search terms,
       and lead-time expectations.
 
-All three calls use gpt-4o-mini (fast model) because the task is
+  Call 4 — Launch Metrics Forecast
+      Projects initial launch KPIs: units to sell, sales revenue, ad spend,
+      profit, margin, and ACOS target for the first 90 days.
+
+All calls use gpt-4o-mini (fast model) because the task is
 structured generation from a clear brief, not deep reasoning.
 
 The combined output is saved to idea["presourcing_data"] and
@@ -331,6 +335,113 @@ TASK — Generate a manufacturer sourcing specification. Return JSON with EXACTL
     )
 
 
+# ── Call 4: Launch Metrics Forecast ──────────────────────────────────────────
+
+def _generate_launch_metrics(idea: dict, concept_result: dict, spec_result: dict) -> dict:
+    """
+    Call 4 of 4.
+
+    Generates projected launch KPIs for the first 90 days:
+    - Units target (units/month needed to be viable)
+    - Sales revenue estimate (monthly and total 90-day)
+    - Ad spend budget (monthly and total 90-day)
+    - Profit estimate (after COGS and ad spend)
+    - Net margin percentage
+    - Target ACOS (Advertising Cost of Sales)
+    """
+    ev         = idea.get("tier1_evidence", {})
+    scores     = idea.get("tier1_scores", {})
+    price_low  = float(ev.get("price_band_low",  15) or 15)
+    price_high = float(ev.get("price_band_high", 50) or 50)
+    avg_price  = round((price_low + price_high) / 2, 2)
+    cogs_est   = round(avg_price * 0.33, 2)
+
+    product_concept = concept_result.get("product_concept", "")
+    quote_volumes   = spec_result.get("quote_volume_assumptions", "")
+
+    evidence_block = _build_evidence_block(idea)
+
+    user_prompt = f"""
+{evidence_block}
+
+PRODUCT CONCEPT
+===============
+{product_concept}
+
+PRICING & UNIT ECONOMICS
+========================
+Retail price range : ${price_low} – ${price_high}
+Average sell price : ${avg_price}
+Estimated COGS     : ${cogs_est} per unit (33% of avg retail)
+
+SOURCING VOLUMES
+================
+{quote_volumes}
+
+---
+TASK — Forecast realistic launch metrics for the first 90 days on Amazon FBA.
+Base all numbers on the market data above. Be conservative but realistic.
+
+Return JSON with EXACTLY these keys:
+
+{{
+  "units": {{
+    "monthly_target": 0,
+    "total_90_day_target": 0,
+    "daily_average": 0,
+    "rationale": "One sentence explaining how this unit target was derived from market demand and competition level."
+  }},
+
+  "sales": {{
+    "monthly_revenue": 0.0,
+    "total_90_day_revenue": 0.0,
+    "avg_selling_price_used": 0.0,
+    "rationale": "One sentence on revenue assumptions."
+  }},
+
+  "adspend": {{
+    "monthly_budget": 0.0,
+    "total_90_day_budget": 0.0,
+    "daily_budget": 0.0,
+    "rationale": "One sentence explaining ad spend strategy for launch phase (aggressive spend to build rank, then taper)."
+  }},
+
+  "profit": {{
+    "gross_profit_monthly": 0.0,
+    "gross_profit_90_day": 0.0,
+    "net_profit_monthly": 0.0,
+    "net_profit_90_day": 0.0,
+    "cogs_used_per_unit": 0.0,
+    "rationale": "One sentence on how profit was calculated (gross = revenue - COGS; net = gross - ad spend - FBA fees estimate)."
+  }},
+
+  "margin": {{
+    "gross_margin_percent": 0.0,
+    "net_margin_percent": 0.0,
+    "fba_fee_estimate_per_unit": 0.0,
+    "rationale": "One sentence on margin assumptions including FBA fees."
+  }},
+
+  "acos": {{
+    "target_acos_percent": 0.0,
+    "breakeven_acos_percent": 0.0,
+    "rationale": "One sentence on ACOS target — typically aim for 25-35% during launch, then optimise toward breakeven ACOS."
+  }},
+
+  "summary": "2-3 sentence plain-English summary of the launch economics outlook: is this a strong, marginal, or risky launch from a unit economics perspective?"
+}}
+""".strip()
+
+    return call_llm(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=user_prompt,
+        model=MODEL_FAST,
+        temperature=0.2,
+        json_mode=True,
+        label="tier3_launch_metrics",
+    )
+
+
 # ── Main runner ────────────────────────────────────────────────────────────────
 
 def run_tier3(idea_id: str, force: bool = False) -> dict:
@@ -359,7 +470,7 @@ def run_tier3(idea_id: str, force: bool = False) -> dict:
         status          : "complete" | "skipped" | "error"
         idea_id         : str
         keyword         : str
-        presourcing_data: dict (all three outputs combined)
+        presourcing_data: dict (all four outputs combined)
         duration_seconds: float
     """
     started = time.monotonic()
@@ -407,16 +518,20 @@ def run_tier3(idea_id: str, force: bool = False) -> dict:
 
     try:
         # ── Call 1: Product concept + buyer poll ───────────────────────────────
-        print("[Tier3] Call 1/3: product concept + buyer poll")
+        print("[Tier3] Call 1/4: product concept + buyer poll")
         concept_result = _generate_concept_and_poll(idea)
 
         # ── Call 2: Listing draft ──────────────────────────────────────────────
-        print("[Tier3] Call 2/3: Amazon listing draft")
+        print("[Tier3] Call 2/4: Amazon listing draft")
         listing_result = _generate_listing(idea, concept_result)
 
         # ── Call 3: Sourcing spec ──────────────────────────────────────────────
-        print("[Tier3] Call 3/3: manufacturer sourcing spec")
+        print("[Tier3] Call 3/4: manufacturer sourcing spec")
         spec_result = _generate_sourcing_spec(idea, concept_result)
+
+        # ── Call 4: Launch metrics forecast ───────────────────────────────────
+        print("[Tier3] Call 4/4: launch metrics forecast")
+        metrics_result = _generate_launch_metrics(idea, concept_result, spec_result)
 
         # ── Assemble the combined presourcing_data payload ─────────────────────
         presourcing_data = {
@@ -442,6 +557,17 @@ def run_tier3(idea_id: str, force: bool = False) -> dict:
             "quote_volume_assumptions":  spec_result.get("quote_volume_assumptions", ""),
             "supplier_search_terms":     spec_result.get("supplier_search_terms", []),
             "lead_time_assumptions":     spec_result.get("lead_time_assumptions", ""),
+
+            # From Call 4 — Launch metrics
+            "launch_metrics": {
+                "units":    metrics_result.get("units", {}),
+                "sales":    metrics_result.get("sales", {}),
+                "adspend":  metrics_result.get("adspend", {}),
+                "profit":   metrics_result.get("profit", {}),
+                "margin":   metrics_result.get("margin", {}),
+                "acos":     metrics_result.get("acos", {}),
+                "summary":  metrics_result.get("summary", ""),
+            },
         }
 
         # ── Save to memory store ───────────────────────────────────────────────

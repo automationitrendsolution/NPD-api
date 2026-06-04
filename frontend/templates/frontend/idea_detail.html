@@ -132,109 +132,6 @@
 
 {% block scripts %}
 <style>
-/* ── Shared animation card (tabs) ───────────────────── */
-.sa-card {
-  position: relative;
-  background: var(--card-bg, #0d1024);
-  border: 1px solid rgba(99,102,241,.3);
-  border-radius: 16px;
-  padding: 2.25rem 2rem 1.75rem;
-  text-align: center;
-  box-shadow:
-    0 8px 30px rgba(0,0,0,.25),
-    0 0 0 1px rgba(99,102,241,.1),
-    inset 0 1px 0 rgba(255,255,255,.04);
-  overflow: hidden;
-  animation: sa-fadein .3s ease;
-}
-@keyframes sa-fadein {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* particles */
-.sa-particles { position: absolute; inset: 0; pointer-events: none; }
-.sa-p {
-  position: absolute;
-  border-radius: 50%;
-  background: #6366f1;
-  opacity: 0;
-  animation: sa-float linear infinite;
-}
-.sa-p:nth-child(1){ width:3px;height:3px; left:8%;  animation-duration:4.2s; animation-delay:.1s; }
-.sa-p:nth-child(2){ width:2px;height:2px; left:22%; animation-duration:5.1s; animation-delay:.9s; background:#818cf8; }
-.sa-p:nth-child(3){ width:4px;height:4px; left:42%; animation-duration:3.7s; animation-delay:1.4s; }
-.sa-p:nth-child(4){ width:2px;height:2px; left:60%; animation-duration:4.8s; animation-delay:.5s; background:#a78bfa; }
-.sa-p:nth-child(5){ width:3px;height:3px; left:78%; animation-duration:4.3s; animation-delay:2s; }
-.sa-p:nth-child(6){ width:2px;height:2px; left:91%; animation-duration:3.9s; animation-delay:1s; background:#818cf8; }
-@keyframes sa-float {
-  0%   { transform: translateY(420px) scale(.6); opacity: 0; }
-  8%   { opacity: .8; }
-  75%  { opacity: .35; }
-  100% { transform: translateY(-40px) scale(1.4); opacity: 0; }
-}
-
-/* icon rings */
-.sa-icon-wrap { position:relative; width:72px; height:72px; margin:0 auto 1.5rem; }
-.sa-ring { position:absolute; border-radius:50%; border:1.5px solid #6366f1; animation:sa-ring-pulse 2.5s ease-in-out infinite; }
-.sa-ring-1 { inset:0;     opacity:.65; animation-delay:0s;   }
-.sa-ring-2 { inset:-13px; opacity:.35; animation-delay:.55s; }
-.sa-ring-3 { inset:-26px; opacity:.15; animation-delay:1.1s; }
-@keyframes sa-ring-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
-
-.sa-icon-inner {
-  position:absolute; inset:0; border-radius:50%;
-  background:linear-gradient(135deg,#4f46e5,#818cf8);
-  display:flex; align-items:center; justify-content:center;
-  font-size:1.55rem; color:#fff;
-  animation:sa-glow 2.5s ease-in-out infinite;
-  transition:background .5s, box-shadow .5s;
-}
-@keyframes sa-glow {
-  0%,100%{box-shadow:0 0 22px rgba(99,102,241,.45),0 4px 20px rgba(0,0,0,.4)}
-  50%    {box-shadow:0 0 50px rgba(99,102,241,.85),0 0 80px rgba(99,102,241,.2),0 4px 20px rgba(0,0,0,.4)}
-}
-.sa-icon-inner.sa-done  { background:linear-gradient(135deg,#059669,#34d399); animation:none; box-shadow:0 0 40px rgba(16,185,129,.6); }
-.sa-icon-inner.sa-error { background:linear-gradient(135deg,#dc2626,#f87171); animation:none; box-shadow:0 0 35px rgba(220,38,38,.5); }
-
-/* text */
-.sa-keyword  { display:inline-block; background:rgba(99,102,241,.1); border:1px solid rgba(99,102,241,.2); border-radius:6px; font-size:.73rem; color:#818cf8; padding:.15rem .55rem; margin-bottom:.85rem; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
-.sa-title    { font-size:1.05rem; font-weight:700; color:#e2e8f0; letter-spacing:-.015em; margin-bottom:.3rem; }
-.sa-subtitle { font-size:.78rem; color:#4b5563; min-height:1.3em; }
-
-/* steps */
-.sa-steps { display:flex; flex-direction:column; gap:.55rem; margin:1.4rem 0 1.25rem; text-align:left; }
-.sa-step  { display:flex; align-items:center; gap:.75rem; font-size:.8rem; color:#2d3146; transition:color .4s; }
-.sa-step-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; background:#1a1d2e; border:1.5px solid #2d3146; transition:background .35s,border-color .35s,box-shadow .35s; }
-.sa-step.sa-active .sa-step-dot { background:#6366f1; border-color:#6366f1; animation:sa-dot-pulse 1.3s ease-in-out infinite; }
-.sa-step.sa-active       { color:#c7d2fe; }
-.sa-step.sa-active span  { font-weight:600; }
-.sa-step.sa-done .sa-step-dot { background:#10b981; border-color:#10b981; animation:none; }
-.sa-step.sa-done         { color:#374151; }
-@keyframes sa-dot-pulse { 0%,100%{box-shadow:0 0 0 2px rgba(99,102,241,.3)} 50%{box-shadow:0 0 0 5px rgba(99,102,241,.1)} }
-
-/* progress */
-.sa-progress-wrap { height:3px; background:#1a1d2e; border-radius:3px; overflow:hidden; }
-.sa-pbar {
-  height:100%; width:0%; border-radius:3px;
-  background:linear-gradient(90deg,#4f46e5,#818cf8,#a78bfa,#818cf8,#4f46e5);
-  background-size:300% 100%;
-  animation:sa-shimmer 1.8s linear infinite;
-  transition:width .7s ease;
-}
-.sa-pbar.sa-done { background:linear-gradient(90deg,#059669,#34d399); background-size:200% 100%; }
-@keyframes sa-shimmer { 0%{background-position:0%} 100%{background-position:-300%} }
-.sa-plabel { font-size:.68rem; color:#374151; text-align:right; margin-top:.4rem; font-variant-numeric:tabular-nums; }
-
-/* card done flash */
-@keyframes sa-done-flash {
-  0%  {box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 1px rgba(16,185,129,.4)}
-  40% {box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 12px rgba(16,185,129,0)}
-  100%{box-shadow:0 8px 30px rgba(0,0,0,.25),0 0 0 1px rgba(99,102,241,.1)}
-}
-.sa-card.sa-card-done { animation:sa-done-flash .7s ease forwards; }
-
-/* keep existing spin/step for any residual elements */
 @keyframes spin { to{transform:rotate(360deg)} }
 .spin { display:inline-block; animation:spin .8s linear infinite; }
 </style>
@@ -254,72 +151,42 @@ var _lastActionError = {};
 var _ideaCache = null;
 
 /* ═══════════════════════════════════════════════════════
-   Reusable tab animation card builder
+   Reusable tab loading card (white card + spinner style)
    prefix   — unique short string (e.g. 'ai', 'rv', 'ps')
    container — DOM element to inject into
    opts     — { keyword, icon, title, subtitle, steps[], completeTitle }
 ═══════════════════════════════════════════════════════ */
 function buildTabAnim(container, opts) {
     var p = opts.prefix;
-    var nSteps = opts.steps.length;
 
     container.innerHTML =
-        '<div class="d-flex justify-content-center py-3">' +
-        '<div class="sa-card" id="' + p + '_card" style="max-width:500px;width:100%">' +
-            '<div class="sa-particles">' +
-                '<span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>' +
-                '<span class="sa-p"></span><span class="sa-p"></span><span class="sa-p"></span>' +
+        '<div class="card"><div class="card-body py-5 text-center">' +
+            '<div id="' + p + '_spinner" class="mb-3">' +
+                '<div class="spinner-border text-primary" style="width:2.2rem;height:2.2rem"></div>' +
             '</div>' +
-            '<div class="sa-icon-wrap">' +
-                '<div class="sa-ring sa-ring-1"></div>' +
-                '<div class="sa-ring sa-ring-2"></div>' +
-                '<div class="sa-ring sa-ring-3"></div>' +
-                '<div class="sa-icon-inner" id="' + p + '_icon"><i class="' + esc(opts.icon) + '"></i></div>' +
-            '</div>' +
-            '<div class="sa-keyword">' + esc(opts.keyword || '') + '</div>' +
-            '<div class="sa-title"    id="' + p + '_title">' + esc(opts.title || '') + '</div>' +
-            '<div class="sa-subtitle" id="' + p + '_sub">'   + esc(opts.subtitle || '') + '</div>' +
-            '<div class="sa-steps">' +
-                opts.steps.map(function(s, i) {
-                    return '<div class="sa-step" id="' + p + '_s' + i + '">' +
-                        '<div class="sa-step-dot"></div><span>' + esc(s) + '</span></div>';
-                }).join('') +
-            '</div>' +
-            '<div class="sa-progress-wrap"><div class="sa-pbar" id="' + p + '_pbar"></div></div>' +
-            '<div class="sa-plabel" id="' + p + '_plbl">0%</div>' +
+            '<div class="fw-semibold mb-1" id="' + p + '_title">' + esc(opts.title || '') + '</div>' +
+            '<div class="text-muted" style="font-size:.83rem" id="' + p + '_sub">' + esc(opts.subtitle || '') + '</div>' +
         '</div></div>';
 
-    function g(id)  { return document.getElementById(p + '_' + id); }
-    function sEl(i) { return document.getElementById(p + '_s' + i); }
-    function setPct(pct) { g('pbar').style.width = pct + '%'; g('plbl').textContent = Math.round(pct) + '%'; }
+    function g(id) { return document.getElementById(p + '_' + id); }
 
     return {
         activate: function(idx, title, sub, pct) {
-            for (var j = 0; j < idx; j++) { var s = sEl(j); if (s) s.className = 'sa-step sa-done'; }
-            var cur = sEl(idx); if (cur) cur.className = 'sa-step sa-active';
-            if (title != null) g('title').textContent = title;
-            if (sub   != null) g('sub').textContent   = sub;
-            if (pct   != null) setPct(pct);
+            if (title != null && g('title')) g('title').textContent = title;
+            if (sub   != null && g('sub'))   g('sub').textContent   = sub;
         },
-        setProgress: function(pct) { setPct(pct); },
+        setProgress: function(pct) {},
         complete: function() {
-            for (var j = 0; j < nSteps; j++) { var s = sEl(j); if (s) s.className = 'sa-step sa-done'; }
-            g('title').textContent  = opts.completeTitle || 'Complete!';
-            g('sub').textContent    = 'Loading results…';
-            g('icon').className     = 'sa-icon-inner sa-done';
-            g('icon').innerHTML     = '<i class="bi bi-check-lg"></i>';
-            g('pbar').className     = 'sa-pbar sa-done';
-            g('pbar').style.width   = '100%';
-            g('plbl').textContent   = '100%';
-            var card = g('card');
-            if (card) { card.classList.add('sa-card-done'); setTimeout(function() { card.classList.remove('sa-card-done'); }, 700); }
+            var sp = g('spinner');
+            if (sp) sp.innerHTML = '<i class="bi bi-check-circle-fill text-success" style="font-size:2rem"></i>';
+            if (g('title')) g('title').textContent = opts.completeTitle || 'Complete!';
+            if (g('sub'))   g('sub').textContent   = 'Loading results…';
         },
         error: function() {
-            g('icon').className    = 'sa-icon-inner sa-error';
-            g('icon').innerHTML    = '<i class="bi bi-x-lg"></i>';
-            g('title').textContent = 'Failed';
-            g('sub').textContent   = 'Check the error message below.';
-            setPct(100);
+            var sp = g('spinner');
+            if (sp) sp.innerHTML = '<i class="bi bi-x-circle-fill text-danger" style="font-size:2rem"></i>';
+            if (g('title')) g('title').textContent = 'Failed';
+            if (g('sub'))   g('sub').textContent   = 'Check the error message below.';
         }
     };
 }
@@ -666,6 +533,126 @@ function renderPresourcing(idea) {
     }
 
     var p = idea.presourcing_data || {};
+
+    // ── Launch metrics helpers ────────────────────────────────────────────────
+    var lm = p.launch_metrics || {};
+    var lu = lm.units   || {};
+    var ls = lm.sales   || {};
+    var la = lm.adspend || {};
+    var lp = lm.profit  || {};
+    var lmg = lm.margin || {};
+    var lac = lm.acos   || {};
+
+    function fmt$(n) {
+        if (n == null || n === '') return '—';
+        var v = parseFloat(n);
+        return isNaN(v) ? '—' : '$' + v.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+    function fmtPct(n) {
+        if (n == null || n === '') return '—';
+        var v = parseFloat(n);
+        return isNaN(v) ? '—' : v.toFixed(1) + '%';
+    }
+    function fmtNum(n) {
+        if (n == null || n === '') return '—';
+        var v = parseInt(n);
+        return isNaN(v) ? '—' : v.toLocaleString();
+    }
+
+    var hasMetrics = !!(lu.monthly_target != null || ls.monthly_revenue != null || la.monthly_budget != null);
+    var metricsHtml = '';
+    if (hasMetrics) {
+        metricsHtml =
+            '<div class="card mb-3">' +
+                '<div class="card-header d-flex align-items-center gap-2">' +
+                    '<i class="bi bi-rocket-takeoff me-1"></i><strong>Launch Metrics Forecast</strong>' +
+                    '<span class="badge bg-secondary ms-auto" style="font-size:.7rem">Initial Stage · First 90 Days</span>' +
+                '</div>' +
+                '<div class="card-body p-0">' +
+                    '<table class="table table-sm mb-0" style="font-size:.83rem;table-layout:fixed;width:100%">' +
+                        '<colgroup>' +
+                            '<col style="width:18%">' +
+                            '<col style="width:14%">' +
+                            '<col style="width:14%">' +
+                            '<col style="width:16%">' +
+                            '<col style="width:38%">' +
+                        '</colgroup>' +
+                        '<thead>' +
+                            '<tr style="background:#f9fafb">' +
+                                '<th class="ps-3 py-2 text-muted fw-semibold" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Metric</th>' +
+                                '<th class="py-2 text-center fw-semibold text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Monthly</th>' +
+                                '<th class="py-2 text-center fw-semibold text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">90-Day</th>' +
+                                '<th class="ps-3 py-2 fw-semibold text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Detail</th>' +
+                                '<th class="ps-3 py-2 fw-semibold text-muted" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px">Suggestion Reason</th>' +
+                            '</tr>' +
+                        '</thead>' +
+                        '<tbody>' +
+                            // Units
+                            '<tr>' +
+                                '<td class="ps-3 py-2"><i class="bi bi-box text-muted me-2"></i><span class="fw-semibold">Units</span></td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmtNum(lu.monthly_target) + '</td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmtNum(lu.total_90_day_target) + '</td>' +
+                                '<td class="ps-3 py-2 text-muted">' + fmtNum(lu.daily_average) + '/day avg</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(lu.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // Sales
+                            '<tr style="background:#f9fafb">' +
+                                '<td class="ps-3 py-2"><i class="bi bi-currency-dollar me-2" style="color:#818cf8"></i><span class="fw-semibold">Sales Revenue</span></td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#6366f1">' + fmt$(ls.monthly_revenue) + '</td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#6366f1">' + fmt$(ls.total_90_day_revenue) + '</td>' +
+                                '<td class="ps-3 py-2 text-muted">@ ' + fmt$(ls.avg_selling_price_used) + ' avg</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(ls.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // Ad Spend
+                            '<tr>' +
+                                '<td class="ps-3 py-2"><i class="bi bi-megaphone me-2" style="color:#f97316"></i><span class="fw-semibold">Ad Spend</span></td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#ea580c">' + fmt$(la.monthly_budget) + '</td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#ea580c">' + fmt$(la.total_90_day_budget) + '</td>' +
+                                '<td class="ps-3 py-2 text-muted">' + fmt$(la.daily_budget) + '/day</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(la.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // Gross Profit
+                            '<tr style="background:#f9fafb">' +
+                                '<td class="ps-3 py-2"><i class="bi bi-graph-up text-muted me-2"></i><span class="fw-semibold">Gross Profit</span></td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmt$(lp.gross_profit_monthly) + '</td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmt$(lp.gross_profit_90_day) + '</td>' +
+                                '<td class="ps-3 py-2 text-muted">COGS ' + fmt$(lp.cogs_used_per_unit) + '/u</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(lp.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // Net Profit (shares profit rationale — already shown above, keep blank or reuse)
+                            '<tr>' +
+                                '<td class="ps-3 py-2"><i class="bi bi-graph-up-arrow me-2" style="color:#22c55e"></i><span class="fw-semibold">Net Profit</span></td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#16a34a">' + fmt$(lp.net_profit_monthly) + '</td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#16a34a">' + fmt$(lp.net_profit_90_day) + '</td>' +
+                                '<td class="ps-3 py-2 text-muted">FBA ' + fmt$(lmg.fba_fee_estimate_per_unit) + '/u</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(lmg.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // Margin
+                            '<tr style="background:#f9fafb">' +
+                                '<td class="ps-3 py-2"><i class="bi bi-percent text-muted me-2"></i><span class="fw-semibold">Margin</span></td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmtPct(lmg.net_margin_percent) + ' <span class="text-muted fw-normal" style="font-size:.75rem">net</span></td>' +
+                                '<td class="py-2 text-center fw-bold">' + fmtPct(lmg.gross_margin_percent) + ' <span class="text-muted fw-normal" style="font-size:.75rem">gross</span></td>' +
+                                '<td class="ps-3 py-2 text-muted">FBA ' + fmt$(lmg.fba_fee_estimate_per_unit) + '/u</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(lmg.rationale || '') + '</td>' +
+                            '</tr>' +
+                            // ACOS
+                            '<tr>' +
+                                '<td class="ps-3 py-2"><i class="bi bi-bullseye me-2" style="color:#a855f7"></i><span class="fw-semibold">ACOS</span></td>' +
+                                '<td class="py-2 text-center fw-bold" style="color:#9333ea">' + fmtPct(lac.target_acos_percent) + ' <span class="text-muted fw-normal" style="font-size:.75rem">target</span></td>' +
+                                '<td class="py-2 text-center fw-bold text-muted">' + fmtPct(lac.breakeven_acos_percent) + ' <span class="fw-normal" style="font-size:.75rem">B/E</span></td>' +
+                                '<td class="ps-3 py-2 text-muted">Launch phase</td>' +
+                                '<td class="ps-3 py-2 text-muted" style="font-size:.78rem">' + esc(lac.rationale || '') + '</td>' +
+                            '</tr>' +
+                        '</tbody>' +
+                    '</table>' +
+                    (lm.summary ?
+                        '<div class="px-3 py-2 border-top text-muted" style="font-size:.8rem;background:#f9fafb">' +
+                            '<i class="bi bi-info-circle me-1"></i>' + esc(lm.summary) +
+                        '</div>' : '') +
+                '</div>' +
+            '</div>';
+    }
+
     var pollWin = (p.poll_winner || '').toLowerCase() === 'our_product';
     el.innerHTML =
         '<div class="alert alert-' + (pollWin ? 'success' : 'warning') + ' d-flex align-items-center gap-3 mb-3">' +
@@ -711,7 +698,8 @@ function renderPresourcing(idea) {
                     }).join('') +
                 '</div></div>' +
             '</div>' +
-        '</div>';
+        '</div>' +
+        metricsHtml;
 }
 
 function specRow(label, value) {

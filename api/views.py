@@ -14,6 +14,7 @@ from .scoring.scorer import score_idea
 from .scoring import config as scoring_config
 from .llm.tier2c import run_tier2c
 from .llm.tier3 import run_tier3
+from .llm.keyword_suggestions import generate_keyword_suggestions
 from .reviews.job import run_review_scraping
 from .search.scraper import fetch_amazon_search
 from .search.parser import parse_amazon_results
@@ -774,6 +775,29 @@ def research_history_delete(request, history_id):
     if result.deleted_count == 0:
         return Response({"error": "not found"}, status=404)
     return Response({"deleted": history_id})
+
+
+@api_view(["POST"])
+def keyword_suggestions_view(request):
+    """
+    Generate AI keyword suggestions for a seed keyword.
+
+    POST /api/keyword-suggestions/
+    Body (JSON):
+        { "keyword": "shirts" }
+
+    Returns grouped keyword suggestions across colour, style, material,
+    audience, use-case, brand-style, and long-tail categories.
+    """
+    keyword = (request.data.get("keyword") or "").strip()
+    if not keyword:
+        return Response({"error": "'keyword' is required"}, status=400)
+
+    try:
+        result = generate_keyword_suggestions(keyword)
+        return Response(result)
+    except Exception as e:
+        return Response({"error": str(e)}, status=500)
 
 
 @api_view(["DELETE"])

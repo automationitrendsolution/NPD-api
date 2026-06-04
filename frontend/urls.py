@@ -15,4 +15,5 @@ urlpatterns = [
     path('documents/amazon-research/', views.doc_amazon_research, name='doc-amazon-research'),
     path('documents/brand-analytics/', views.doc_ba, name='doc-ba'),
     path('documents/api-reference/', views.doc_api, name='doc-api'),
+    path('keyword-suggestions/', views.keyword_suggestions, name='keyword-suggestions'),
 ]

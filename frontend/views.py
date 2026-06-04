@@ -43,3 +43,8 @@ def doc_ba(request):
 
 def doc_api(request):
     return render(request, 'frontend/doc_api.html')
+
+
+def keyword_suggestions(request):
+    examples = ['shirts', 'yoga mat', 'dog leash', 'bamboo mug', 'car sun shade', 'kitchen knife', 'baby monitor']
+    return render(request, 'frontend/keyword_suggestions.html', {'examples': examples})

@@ -41,6 +41,9 @@ urlpatterns = [
     # POST /api/reviews/scrape/ → scrape Amazon reviews for a shortlisted idea
     path("reviews/scrape/", views.scrape_reviews_view, name="scrape-reviews"),
 
+    # ── AI Keyword Suggestions ────────────────────────────────────────────────
+    path("keyword-suggestions/", views.keyword_suggestions_view, name="keyword-suggestions"),
+
     # ── System health ──────────────────────────────────────────────────────────
     # GET /api/db-status/ → MongoDB connectivity + collection stats
     path("db-status/", views.db_status, name="db-status"),

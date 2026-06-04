@@ -181,6 +181,47 @@ def build_default_idea(keyword: str, concept: str = "", source: str = "human_see
             "quote_volume_assumptions": "",
             "supplier_search_terms": [],
             "lead_time_assumptions": "",
+            # Launch metrics — AI-projected KPIs for the initial 90-day launch window
+            "launch_metrics": {
+                "units": {
+                    "monthly_target": None,
+                    "total_90_day_target": None,
+                    "daily_average": None,
+                    "rationale": "",
+                },
+                "sales": {
+                    "monthly_revenue": None,
+                    "total_90_day_revenue": None,
+                    "avg_selling_price_used": None,
+                    "rationale": "",
+                },
+                "adspend": {
+                    "monthly_budget": None,
+                    "total_90_day_budget": None,
+                    "daily_budget": None,
+                    "rationale": "",
+                },
+                "profit": {
+                    "gross_profit_monthly": None,
+                    "gross_profit_90_day": None,
+                    "net_profit_monthly": None,
+                    "net_profit_90_day": None,
+                    "cogs_used_per_unit": None,
+                    "rationale": "",
+                },
+                "margin": {
+                    "gross_margin_percent": None,
+                    "net_margin_percent": None,
+                    "fba_fee_estimate_per_unit": None,
+                    "rationale": "",
+                },
+                "acos": {
+                    "target_acos_percent": None,
+                    "breakeven_acos_percent": None,
+                    "rationale": "",
+                },
+                "summary": "",
+            },
         },
     }
 

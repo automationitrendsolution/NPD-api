@@ -1,0 +1,263 @@
+{% extends "frontend/base.html" %}
+{% block title %}Keyword AI — NPD Pipeline{% endblock %}
+{% block page_title %}Keyword AI{% endblock %}
+{% block page_subtitle %}AI-generated keyword suggestions from a seed term{% endblock %}
+
+{% block content %}
+
+<!-- Search bar -->
+<div class="card mb-4" style="border:1.5px solid var(--accent);box-shadow:0 0 0 4px rgba(99,102,241,.07)">
+    <div class="card-body p-3">
+        <div class="d-flex gap-2 align-items-center">
+            <div class="position-relative flex-grow-1">
+                <i class="bi bi-search position-absolute" style="left:.9rem;top:50%;transform:translateY(-50%);color:#6b7280;font-size:.95rem;pointer-events:none"></i>
+                <input id="seed-input" type="text" class="form-control" placeholder='e.g. "shirts", "bamboo mug", "dog leash"'
+                       style="font-size:.95rem;height:2.75rem;padding-left:3.2rem"
+                       onkeydown="if(event.key==='Enter') generateSuggestions()">
+            </div>
+            <button id="gen-btn" class="btn btn-primary px-4" style="height:2.75rem;white-space:nowrap" onclick="generateSuggestions()">
+                <i class="bi bi-stars me-1"></i> Generate
+            </button>
+        </div>
+        <div id="example-chips" class="mt-2 d-flex flex-wrap gap-1">
+            <span class="text-muted me-1" style="font-size:.75rem;line-height:2">Try:</span>
+            {% for ex in examples %}
+            <span class="badge border text-secondary" style="cursor:pointer;font-size:.75rem;font-weight:400;padding:.3em .65em"
+                  onclick="document.getElementById('seed-input').value='{{ ex }}'; generateSuggestions()">{{ ex }}</span>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- Results area -->
+<div id="results-area"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var _lastSeed = '';
+
+async function generateSuggestions() {
+    var seed = document.getElementById('seed-input').value.trim();
+    if (!seed) { document.getElementById('seed-input').focus(); return; }
+
+    var btn = document.getElementById('gen-btn');
+    var area = document.getElementById('results-area');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Generating…';
+
+    // Loading skeleton
+    area.innerHTML =
+        '<div class="card mb-3"><div class="card-body py-4 text-center">' +
+            '<div class="spinner-border text-primary mb-3" style="width:2rem;height:2rem"></div>' +
+            '<div class="fw-semibold">AI is expanding <em>' + esc(seed) + '</em>…</div>' +
+            '<div class="text-muted small mt-1">Analysing category, buyer intent, and search patterns</div>' +
+        '</div></div>';
+
+    try {
+        var data = await apiPost('/api/keyword-suggestions/', { keyword: seed });
+        _lastSeed = seed;
+        renderResults(data);
+    } catch(e) {
+        area.innerHTML =
+            '<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>' +
+            esc(e.message || 'An error occurred') + '</div>';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-stars me-1"></i> Generate';
+    }
+}
+
+function renderResults(data) {
+    var area = document.getElementById('results-area');
+    if (!data || !data.groups) {
+        area.innerHTML = '<div class="alert alert-warning">No suggestions returned. Try a different keyword.</div>';
+        return;
+    }
+
+    var groups   = (data.groups || []).filter(function(g) { return g.keywords && g.keywords.length; });
+    var topPicks = data.amazon_top_picks || [];
+    var tips     = data.search_tips || '';
+    var total    = data.total_keywords || 0;
+
+    var html = '';
+
+    // ── Stats bar ────────────────────────────────────────────────────────────
+    html +=
+        '<div class="d-flex align-items-center gap-3 mb-3 flex-wrap">' +
+            '<div class="fw-semibold" style="font-size:1rem"><i class="bi bi-stars me-1 text-primary"></i>Results for <em>' + esc(data.seed_keyword) + '</em></div>' +
+            '<span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" style="font-size:.78rem">' + total + ' keywords</span>' +
+            '<span class="badge bg-light text-secondary border" style="font-size:.78rem">' + groups.length + ' categories</span>' +
+            '<button class="btn btn-sm btn-outline-secondary ms-auto" style="font-size:.75rem" onclick="copyAll()">' +
+                '<i class="bi bi-clipboard me-1"></i>Copy All' +
+            '</button>' +
+        '</div>';
+
+    // ── Top picks ────────────────────────────────────────────────────────────
+    if (topPicks.length) {
+        html +=
+            '<div class="card mb-3" style="border-color:rgba(99,102,241,.3);background:rgba(99,102,241,.04)">' +
+                '<div class="card-header d-flex align-items-center gap-2" style="background:rgba(99,102,241,.08);border-color:rgba(99,102,241,.2)">' +
+                    '<i class="bi bi-trophy text-primary"></i>' +
+                    '<strong style="color:#4f46e5">Amazon Top Picks</strong>' +
+                    '<span class="text-muted ms-auto" style="font-size:.72rem">Highest-opportunity keywords to prioritise</span>' +
+                '</div>' +
+                '<div class="card-body d-flex flex-wrap gap-2 py-3">' +
+                    topPicks.map(function(kw) {
+                        return kwChip(kw, 'primary', true);
+                    }).join('') +
+                '</div>' +
+            '</div>';
+    }
+
+    // ── Category groups ───────────────────────────────────────────────────────
+    html += '<div class="row g-3">';
+    groups.forEach(function(group) {
+        var shortTail = group.keywords.filter(function(k) { return k.type === 'short_tail'; });
+        var longTail  = group.keywords.filter(function(k) { return k.type === 'long_tail' || k.type !== 'short_tail'; });
+
+        html +=
+            '<div class="col-md-6 col-xl-4">' +
+                '<div class="card h-100">' +
+                    '<div class="card-header d-flex align-items-center gap-2">' +
+                        '<i class="' + esc(group.icon || 'bi-tag') + ' text-muted"></i>' +
+                        '<span class="fw-semibold" style="font-size:.85rem">' + esc(group.category) + '</span>' +
+                        '<span class="badge bg-light text-secondary border ms-auto" style="font-size:.68rem">' + group.keywords.length + '</span>' +
+                    '</div>' +
+                    '<div class="card-body">' +
+                        (shortTail.length ?
+                            '<div class="mb-2">' +
+                                '<div class="text-muted mb-1" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Short-tail</div>' +
+                                '<div class="d-flex flex-wrap gap-1">' +
+                                    shortTail.map(function(k) { return kwChip(k.keyword, 'secondary', false, k.notes); }).join('') +
+                                '</div>' +
+                            '</div>' : '') +
+                        (longTail.length ?
+                            '<div>' +
+                                '<div class="text-muted mb-1" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600">Long-tail</div>' +
+                                '<div class="d-flex flex-wrap gap-1">' +
+                                    longTail.map(function(k) { return kwChip(k.keyword, 'light', false, k.notes); }).join('') +
+                                '</div>' +
+                            '</div>' : '') +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+    });
+    html += '</div>';
+
+    // ── Search tip ────────────────────────────────────────────────────────────
+    if (tips) {
+        html +=
+            '<div class="alert alert-light border mt-3 mb-0" style="font-size:.83rem">' +
+                '<i class="bi bi-lightbulb text-warning me-2"></i>' +
+                '<strong>Strategy tip:</strong> ' + esc(tips) +
+            '</div>';
+    }
+
+    area.innerHTML = html;
+}
+
+function kwChip(keyword, variant, star, notes) {
+    var baseStyle = 'cursor:pointer;font-size:.78rem;font-weight:400;white-space:normal;text-align:left;padding:.35em .65em;transition:opacity .15s';
+    var bgClass = variant === 'primary'   ? 'bg-primary text-white border-0'
+                : variant === 'secondary' ? 'bg-light text-dark border'
+                : 'bg-white text-dark border';
+
+    var title = notes ? ' title="' + esc(notes) + '"' : '';
+    return '<span class="badge ' + bgClass + ' d-inline-flex align-items-center gap-1 mb-1" style="' + baseStyle + '"' + title +
+               ' onclick="handleKwClick(this, \'' + esc(keyword).replace(/'/g, '&#39;') + '\')">' +
+               (star ? '<i class="bi bi-star-fill" style="font-size:.6rem;opacity:.7"></i>' : '') +
+               esc(keyword) +
+               '<span class="ms-1 opacity-50" style="font-size:.6rem">⎘</span>' +
+           '</span>';
+}
+
+function handleKwClick(el, keyword) {
+    // Show mini action menu
+    var existing = document.getElementById('kw-action-menu');
+    if (existing) existing.remove();
+
+    var menu = document.createElement('div');
+    menu.id = 'kw-action-menu';
+    menu.style.cssText = 'position:fixed;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:.5rem;box-shadow:0 8px 24px rgba(0,0,0,.12);padding:.4rem;min-width:200px;font-size:.82rem';
+
+    var rect = el.getBoundingClientRect();
+    menu.style.top  = (rect.bottom + 6) + 'px';
+    menu.style.left = Math.min(rect.left, window.innerWidth - 220) + 'px';
+
+    menu.innerHTML =
+        '<div class="text-muted px-2 pb-1" style="font-size:.7rem;border-bottom:1px solid #f3f4f6;margin-bottom:.3rem">' +
+            '<strong>' + esc(keyword) + '</strong>' +
+        '</div>' +
+        actionItem('bi-clipboard', 'Copy keyword',       function() { copyKw(keyword); }) +
+        actionItem('bi-shop',      'Open in Research',   function() { window.open('/research/?keyword=' + encodeURIComponent(keyword), '_blank'); }) +
+        actionItem('bi-stars',     'Send to Score Idea', function() { window.open('/score/?keyword=' + encodeURIComponent(keyword), '_blank'); }) +
+        actionItem('bi-search',    'Search on Amazon',   function() { window.open('https://www.amazon.com/s?k=' + encodeURIComponent(keyword), '_blank'); });
+
+    document.body.appendChild(menu);
+    setTimeout(function() { document.addEventListener('click', function dismiss(e) { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('click', dismiss); } }); }, 0);
+}
+
+function actionItem(icon, label, fn) {
+    var div = '<div class="d-flex align-items-center gap-2 px-2 py-1 rounded" style="cursor:pointer" ' +
+              'onmouseover="this.style.background=\'#f9fafb\'" onmouseout="this.style.background=\'\'">' +
+              '<i class="bi ' + icon + ' text-muted" style="width:.9rem"></i>' + label + '</div>';
+    // Store fn globally and reference by index
+    var idx = (window._kwActions = window._kwActions || []).push(fn) - 1;
+    return div.replace('cursor:pointer"', 'cursor:pointer" onclick="window._kwActions[' + idx + ']()"');
+}
+
+function copyKw(keyword) {
+    navigator.clipboard.writeText(keyword).then(function() { showToast('Copied: ' + keyword); });
+    var menu = document.getElementById('kw-action-menu');
+    if (menu) menu.remove();
+}
+
+function copyAll() {
+    var chips = document.querySelectorAll('#results-area .badge[onclick*="handleKwClick"]');
+    var all = Array.from(chips).map(function(el) {
+        var m = el.getAttribute('onclick').match(/'([^']+)'\)$/);
+        return m ? m[1] : '';
+    }).filter(Boolean);
+    navigator.clipboard.writeText(all.join('\n')).then(function() {
+        showToast('Copied ' + all.length + ' keywords');
+    });
+}
+
+function showToast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;background:#111827;color:#fff;padding:.6rem 1.1rem;border-radius:.5rem;font-size:.82rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function() { t.style.opacity = '0'; setTimeout(function() { t.remove(); }, 300); }, 2000);
+}
+
+function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function apiPost(url, body) {
+    var csrf = document.querySelector('meta[name="csrf-token"]');
+    var r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf ? csrf.content : '' },
+        body: JSON.stringify(body)
+    });
+    var data = await r.json();
+    if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+    return data;
+}
+
+// Pre-fill from query param (e.g. coming from Score Idea)
+(function() {
+    var params = new URLSearchParams(window.location.search);
+    var kw = params.get('keyword');
+    if (kw) {
+        document.getElementById('seed-input').value = kw;
+        generateSuggestions();
+    }
+})();
+</script>
+{% endblock %}
