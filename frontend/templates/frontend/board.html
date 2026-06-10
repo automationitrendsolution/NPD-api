@@ -17,17 +17,50 @@
 <div class="card mb-3">
     <div class="card-body py-2">
         <div class="d-flex gap-2 flex-wrap align-items-center">
-            <select class="form-select form-select-sm w-auto" id="filter-source">
+            <!-- Source -->
+            <select class="form-select form-select-sm w-auto" id="filter-source" onchange="applyAndRender()">
                 <option value="">All Sources</option>
                 <option value="human_seeded">Human Seeded</option>
                 <option value="autonomous">Autonomous</option>
                 <option value="adjacency_mining">Adjacency Mining</option>
             </select>
-            <input type="number" class="form-control form-control-sm" style="width:120px" id="filter-score" placeholder="Min score" min="0" max="100">
-            <button class="btn btn-outline-primary btn-sm" id="btn-filter">
-                <i class="bi bi-funnel me-1"></i>Filter
+
+            <!-- Composite Score -->
+            <select class="form-select form-select-sm w-auto" id="filter-score" onchange="applyAndRender()">
+                <option value="">All Scores</option>
+                <option value="70">70 + Eligible</option>
+                <option value="55">55 – 69 Task</option>
+                <option value="45">45 – 54 Tracked</option>
+                <option value="0">&lt; 45 Dismissed</option>
+            </select>
+
+            <!-- Evidence Summary search -->
+            <div class="position-relative">
+                <i class="bi bi-file-text position-absolute text-muted" style="left:.55rem;top:50%;transform:translateY(-50%);font-size:.75rem;pointer-events:none"></i>
+                <input type="text" class="form-control form-control-sm" style="width:160px;padding-left:1.7rem"
+                       id="filter-evidence" placeholder="Evidence summary…" oninput="applyAndRender()">
+            </div>
+
+            <!-- Competitor ASINs -->
+            <select class="form-select form-select-sm w-auto" id="filter-asins" onchange="applyAndRender()">
+                <option value="">Any competitors</option>
+                <option value="has">Has competitors</option>
+                <option value="none">No competitors</option>
+                <option value="3">3 + competitors</option>
+            </select>
+
+            <!-- Competitor Review Counts -->
+            <select class="form-select form-select-sm w-auto" id="filter-reviews" onchange="applyAndRender()">
+                <option value="">Any review count</option>
+                <option value="low">&lt; 100 avg</option>
+                <option value="mid">100 – 500 avg</option>
+                <option value="high">500 + avg</option>
+            </select>
+
+            <button class="btn btn-sm btn-link text-secondary p-0" style="font-size:.78rem" onclick="resetFilters()">
+                <i class="bi bi-x-circle me-1"></i>Reset
             </button>
-            <span class="text-muted small" id="idea-count-text"></span>
+            <span class="text-muted small ms-auto" id="idea-count-text"></span>
         </div>
     </div>
 </div>
@@ -127,14 +160,93 @@ function buildCard(idea, colStatus) {
         '</div>';
 }
 
+/* ── Filter helpers ─────────────────────────────── */
+function _competitorAsins(i) {
+    var a = i.competitor_asins
+        || (i.score_data && i.score_data.competitor_asins)
+        || (i.evidence   && i.evidence.competitor_asins)
+        || [];
+    return Array.isArray(a) ? a : [];
+}
+
+function _avgReviews(i) {
+    var raw = i.competitor_review_counts
+        || (i.score_data && i.score_data.competitor_review_counts)
+        || (i.evidence   && i.evidence.competitor_review_counts)
+        || null;
+    if (raw == null) return null;
+    if (typeof raw === 'number') return raw;
+    if (Array.isArray(raw) && raw.length) {
+        return Math.round(raw.reduce(function(s, v) { return s + (Number(v) || 0); }, 0) / raw.length);
+    }
+    return null;
+}
+
+function _evidenceSummary(i) {
+    return (i.evidence_summary
+        || (i.score_data && i.score_data.evidence_summary)
+        || (i.evidence   && i.evidence.summary)
+        || '').toLowerCase();
+}
+
 function applyFilters(ideas) {
-    var source   = document.getElementById('filter-source').value;
-    var minScore = parseInt(document.getElementById('filter-score').value, 10) || 0;
+    var fSource   = document.getElementById('filter-source').value;
+    var fScore    = document.getElementById('filter-score').value;
+    var fEvidence = (document.getElementById('filter-evidence').value || '').toLowerCase().trim();
+    var fAsins    = document.getElementById('filter-asins').value;
+    var fReviews  = document.getElementById('filter-reviews').value;
+
     return ideas.filter(function(i) {
-        if (source && i.source !== source) return false;
-        if (minScore > 0 && (i.tier1_score == null || i.tier1_score < minScore)) return false;
+        /* Source */
+        if (fSource && i.source !== fSource) return false;
+
+        /* Composite score band */
+        var score = i.tier1_score;
+        if (fScore !== '') {
+            var band = parseInt(fScore, 10);
+            if (band === 70 && score < 70)                       return false;
+            if (band === 55 && (score < 55 || score >= 70))      return false;
+            if (band === 45 && (score < 45 || score >= 55))      return false;
+            if (band === 0  && score >= 45)                      return false;
+        }
+
+        /* Evidence summary text search */
+        if (fEvidence) {
+            var ev = _evidenceSummary(i);
+            var kw = (i.keyword || '').toLowerCase();
+            if (ev.indexOf(fEvidence) === -1 && kw.indexOf(fEvidence) === -1) return false;
+        }
+
+        /* Competitor ASINs */
+        if (fAsins !== '') {
+            var asins = _competitorAsins(i);
+            if (fAsins === 'has'  && asins.length === 0) return false;
+            if (fAsins === 'none' && asins.length > 0)   return false;
+            if (fAsins === '3'    && asins.length < 3)   return false;
+        }
+
+        /* Avg review count */
+        if (fReviews !== '') {
+            var avg = _avgReviews(i);
+            if (avg === null)                              return false;
+            if (fReviews === 'low'  && avg >= 100)         return false;
+            if (fReviews === 'mid'  && (avg < 100 || avg >= 500)) return false;
+            if (fReviews === 'high' && avg < 500)          return false;
+        }
+
         return true;
     });
+}
+
+function applyAndRender() { renderBoard(applyFilters(allIdeas)); }
+
+function resetFilters() {
+    document.getElementById('filter-source').value   = '';
+    document.getElementById('filter-score').value    = '';
+    document.getElementById('filter-evidence').value = '';
+    document.getElementById('filter-asins').value    = '';
+    document.getElementById('filter-reviews').value  = '';
+    applyAndRender();
 }
 
 function renderBoard(ideas) {
@@ -184,7 +296,6 @@ async function changeStatus(ev, ideaId, newStatus) {
 }
 
 document.getElementById('btn-refresh').addEventListener('click', loadBoard);
-document.getElementById('btn-filter').addEventListener('click', function() { renderBoard(applyFilters(allIdeas)); });
 document.addEventListener('DOMContentLoaded', loadBoard);
 </script>
 {% endblock %}

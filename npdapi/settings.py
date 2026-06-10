@@ -7,7 +7,7 @@ SECRET_KEY = 'django-insecure-fk5@q)l@phw#rh5b39ki=g#m_y$)i_ao_^h87&@y*nsm1p7-_2
 
 DEBUG = True
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 # ── Apps ──────────────────────────────────────────────────────────────────────
 # admin / auth / contenttypes / sessions removed — no SQL database in this project.

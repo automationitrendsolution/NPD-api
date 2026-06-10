@@ -32,7 +32,7 @@ services:
       MONGO_DB: "npd_db"
       DJANGO_ALLOWED_HOSTS: "*"
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./api:/app/api
       - ./frontend:/app/frontend
